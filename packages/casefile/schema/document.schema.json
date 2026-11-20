@@ -3,34 +3,118 @@
   "$id": "document.schema.json",
   "title": "Document (documents/<doc-id>.json), format v1",
   "type": "object",
-  "required": ["template", "role"],
+  "required": [
+    "template",
+    "role"
+  ],
   "properties": {
-    "template": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
-    "style": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
-    "role": { "enum": ["central", "supporting"] },
+    "template": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "style": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "role": {
+      "enum": [
+        "central",
+        "supporting"
+      ]
+    },
     "slots": {
       "type": "object",
       "additionalProperties": {
         "oneOf": [
           {
             "type": "object",
-            "required": ["kind"],
-            "properties": { "kind": { "const": "markdown" }, "file": { "type": "string" }, "text": { "type": "string" } },
-            "anyOf": [{ "required": ["file"] }, { "required": ["text"] }]
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "markdown"
+              },
+              "file": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "anyOf": [
+              {
+                "required": [
+                  "file"
+                ]
+              },
+              {
+                "required": [
+                  "text"
+                ]
+              }
+            ]
           },
           {
             "type": "object",
-            "required": ["kind", "file"],
-            "properties": { "kind": { "const": "image" }, "file": { "type": "string" }, "alt": { "type": "string" } }
+            "required": [
+              "kind",
+              "file"
+            ],
+            "properties": {
+              "kind": {
+                "const": "image"
+              },
+              "file": {
+                "type": "string"
+              },
+              "alt": {
+                "type": "string"
+              }
+            }
           },
           {
             "type": "object",
-            "required": ["kind", "value"],
-            "properties": { "kind": { "const": "value" }, "value": { "type": "string" } }
+            "required": [
+              "kind",
+              "value"
+            ],
+            "properties": {
+              "kind": {
+                "const": "value"
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "items"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "choices"
+              }
+            }
           }
         ]
       }
     },
-    "hotspots": { "type": "array" }
+    "hotspots": {
+      "type": "array"
+    }
   }
 }

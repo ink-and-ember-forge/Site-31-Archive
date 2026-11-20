@@ -1,4 +1,5 @@
 import { extractSpanIds } from './markdown';
+import { normaliseChoices, normaliseItems } from './money';
 import { isSafePath, type PackageSource } from './source';
 import type {
   Casefile,
@@ -123,6 +124,16 @@ export async function loadCasefile(source: PackageSource, options: LoadOptions =
           }
         }
         markdownBySlot.set(name, text ?? '');
+      } else if (slot.kind === 'items') {
+        const { content, issues } = normaliseItems(slot);
+        issues.forEach((issue) => warn(path, `slot "${name}": ${issue}`));
+        slots[name] = content;
+        continue;
+      } else if (slot.kind === 'choices') {
+        const { content, issues } = normaliseChoices(slot);
+        issues.forEach((issue) => warn(path, `slot "${name}": ${issue}`));
+        slots[name] = content;
+        continue;
       } else if (slot.kind === 'image') {
         if (!isSafePath(slot.file) || (await source.readBytes(slot.file)) === undefined) {
           warn(path, `slot "${name}" dropped: image "${slot.file}" is missing or unsafe`);

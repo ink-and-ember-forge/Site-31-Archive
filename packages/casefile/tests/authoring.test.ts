@@ -139,6 +139,21 @@ describe('newDocumentFiles', () => {
   });
 });
 
+describe('newDocumentFiles for the new kinds', () => {
+  it('starts an itemised list empty and a set of choices with nothing ticked', () => {
+    const { document, files } = newDocumentFiles('form-1', {
+      id: 'form',
+      slots: [{ name: 'lines', kind: 'items' as const }, { name: 'ticks', kind: 'choices' as const }, { name: 'name', kind: 'value' as const, label: 'Name:' }],
+    });
+    expect((document as { slots: unknown }).slots).toEqual({
+      lines: { kind: 'items', items: [] },
+      ticks: { kind: 'choices', selected: [] },
+      name: { kind: 'value', value: '' },
+    });
+    expect(files).toEqual({});
+  });
+});
+
 describe('manifest edits', () => {
   const base = {
     formatVersion: 1,

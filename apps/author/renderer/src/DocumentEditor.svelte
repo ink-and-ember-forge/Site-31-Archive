@@ -59,7 +59,7 @@
           <span>{pretty(slot.name)}{slot.required ? '' : ' (optional)'}</span>
           <textarea rows="9" bind:value={texts[slot.name]} oninput={() => autosave(`text:${slot.name}`, () => window.author.setSlotText(doc.id, slot.name, texts[slot.name]))}></textarea>
         </label>
-      {:else}
+      {:else if slot.kind === 'image'}
         <div class="image">
           <span class="label">{pretty(slot.name)}{slot.required ? '' : ' (optional)'}</span>
           <p class="file">{slot.image ? slot.image.file.replace('media/images/', '') : 'No image chosen yet.'}</p>
@@ -71,6 +71,8 @@
             </label>
           {/if}
         </div>
+      {:else}
+        <p class="help">{pretty(slot.name)}: this part of the document is edited by a later step of the tool.</p>
       {/if}
     {/each}
 

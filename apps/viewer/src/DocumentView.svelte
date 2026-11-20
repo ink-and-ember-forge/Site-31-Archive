@@ -42,7 +42,7 @@
     {#each Object.values(doc.content) as item}
       {#if item.kind === 'markdown'}<Rich blocks={item.blocks} />
       {:else if item.kind === 'value'}<p>{item.value}</p>
-      {:else}<img src={item.url} alt={item.alt} />{/if}
+      {:else if item.kind === 'image'}<img src={item.url} alt={item.alt} />{/if}
     {/each}
   {:else}
     <Block block={doc.template.layout} content={doc.content} />

@@ -4,6 +4,8 @@ import {
   resolveTemplate,
   zipSource,
   type ArchiveIndex,
+  type ChoicesContent,
+  type ItemsContent,
   type ArchiveIndexEntry,
   type Casefile,
   type DocumentDef,
@@ -23,7 +25,9 @@ const base = import.meta.env.BASE_URL;
 export type Content =
   | { kind: 'markdown'; blocks: MdBlock[] }
   | { kind: 'image'; url: string; alt: string }
-  | { kind: 'value'; value: string };
+  | { kind: 'value'; value: string }
+  | ItemsContent
+  | ChoicesContent;
 
 export interface LightboxContent {
   variant: NoteVariant;
@@ -73,6 +77,7 @@ async function readContent(source: PackageSource, def: DocumentDef, urls: string
   const content: Record<string, Content> = {};
   for (const [name, slot] of Object.entries(def.slots)) {
     if (slot.kind === 'value') content[name] = { kind: 'value', value: slot.value };
+    else if (slot.kind === 'items' || slot.kind === 'choices') content[name] = slot; // drawn by the blocks that use them
     else if (slot.kind === 'markdown') {
       const text = slot.text ?? (slot.file ? await source.readText(slot.file) : undefined) ?? '';
       content[name] = { kind: 'markdown', blocks: parseMarkdown(text) };

@@ -211,7 +211,14 @@ complaint form and discharge summary come later from the same parts); the filled
 as templates on request, with no form designer in the tool**. The proposal is `docs/document-forms-proposal.md` and is
 awaiting approval, since it adds new content kinds to the package format (additively, `formatVersion` stays 1).
 
+## 2026-11-20: Document forms approved; step 1 built
+
+The author approved `docs/document-forms-proposal.md`. Step 1 is in: template slot labels, `items` (itemised lists with one
+currency, optional tax added or included, marked taxable lines) and `choices` (ticked options) content kinds, the money
+maths in whole pence (never floating point, half away from zero), schema changes, and loader tolerance (a bad item, currency
+or tax setting is dropped with a reason and never loses the document). `formatVersion` stays 1. Step 2 (viewer look) is next.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
-document types after the witness statement, house style. Next: document forms (`docs/document-forms-proposal.md`, awaiting approval), then authoring tool step 3 (hotspots), 4 and 5.
+document types after the witness statement, house style. Next: document forms step 2 (viewer look), then step 3 (tool forms), then authoring tool step 3 (hotspots), 4 and 5.

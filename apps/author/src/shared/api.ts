@@ -1,6 +1,6 @@
 // The contract between the app's window and its main process. Types only: no code is shared.
 import type { EpisodeDetails } from '@archive/casefile/authoring';
-import type { Layout } from '@archive/casefile';
+import type { Layout, SlotKind as FormatSlotKind } from '@archive/casefile';
 
 export interface Problem {
   severity: 'error' | 'warning';
@@ -9,7 +9,7 @@ export interface Problem {
   hint?: string;
 }
 
-export type SlotKind = 'markdown' | 'image' | 'value';
+export type SlotKind = FormatSlotKind;
 
 /** A kind of document the author can add (a template from the shared theme). */
 export interface TemplateInfo {

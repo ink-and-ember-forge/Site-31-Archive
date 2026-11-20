@@ -1,6 +1,6 @@
-# Document forms: proposal (DRAFT, NOT APPROVED)
+# Document forms
 
-Nothing is built against this until the author approves it. It answers the author's feedback after trying
+**Status: approved by the author on 2026-11-20. Step 1 of 3 (format, money, loader) is built; see the end.** It answers the author's feedback after trying
 the authoring tool on 2026-11-20:
 
 1. Each document type should have its own bespoke form in the tool. A receipt has two columns (item, price),
@@ -152,3 +152,18 @@ Each step ships as a release so the author can try it.
    would rather it stop and show "continued on reverse".
 3. **Real fonts.** Typewriter and handwriting still use fonts already on the reader's computer. Loading font files
    from the theme is a separate, later step.
+
+## Progress
+
+| Step | Status |
+| --- | --- |
+| 1. Format, money and loader | **Built.** Template slot labels, the `items` and `choices` content kinds, exact money maths, schema, tolerant loader, and 62 new tests. Nothing changes on screen yet. |
+| 2. Viewer | Next: the new parts, the `witness-statement` template, the upgraded receipt, and the two voices. Screenshots for sign-off. |
+| 3. Authoring tool | After that: the bespoke forms and the items editor. |
+
+Details settled while building step 1:
+
+- A price is read from its written form, not its binary value, so 1.005 is 1.01 and 0.1 + 0.2 is exactly 0.30. Rounding is half away from zero.
+- Prices are limited to plus or minus 1,000,000 and a list to 1,000 items, so the arithmetic is always exact.
+- A malformed receipt never loses the whole document. A bad item, currency or tax setting is dropped or ignored on its own, with a plain-English reason shown as a warning.
+- Until step 2, the placeholder receipt and the tool behave exactly as before. The viewer and the tool already accept the new kinds without breaking.

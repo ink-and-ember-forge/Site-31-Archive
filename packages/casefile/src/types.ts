@@ -1,4 +1,5 @@
 /** Types for the case file package format v1. See docs/package-format-proposal.md. */
+import type { ChoicesContent, ItemsContent } from './money';
 
 export const CURRENT_FORMAT_VERSION = 1;
 
@@ -31,7 +32,9 @@ export interface Manifest {
 export type Slot =
   | { kind: 'markdown'; file?: string; text?: string }
   | { kind: 'image'; file: string; alt?: string }
-  | { kind: 'value'; value: string };
+  | { kind: 'value'; value: string }
+  | ItemsContent
+  | ChoicesContent;
 
 export type Anchor =
   | { type: 'text'; slot: string }
@@ -81,6 +84,8 @@ export interface LedgerRef {
   layer: LedgerLayer;
 }
 
+export type SlotKind = 'markdown' | 'image' | 'value' | 'items' | 'choices';
+
 export interface Block {
   block: string;
   slot?: string;
@@ -94,7 +99,7 @@ export interface Template {
   placeholder?: boolean;
   defaultStyle?: string;
   aspect?: number;
-  slots: { name: string; kind: 'markdown' | 'image' | 'value'; required?: boolean }[];
+  slots: { name: string; kind: SlotKind; required?: boolean; label?: string }[];
   layout: Block;
 }
 

@@ -216,3 +216,75 @@ describe('partial packages degrade gracefully', () => {
     if (r.ok) expect(r.warnings).toHaveLength(1);
   });
 });
+
+describe('itemised lists and ticked choices', () => {
+  const receiptDoc = (slots: Record<string, unknown>) => ({ template: 'receipt', role: 'supporting', slots });
+
+  it('loads a good itemised list with no warnings and keeps it exactly', async () => {
+    const items = { kind: 'items', currency: '£', tax: { mode: 'added', rate: 20 }, items: [{ name: 'PLACEHOLDER A', price: 4.5, taxable: true }, { name: 'PLACEHOLDER B', price: 2 }] };
+    const r = await loadCasefile(await sampleWith({ 'documents/receipt.json': receiptDoc({ store: { kind: 'value', value: 'X' }, items }) }));
+    if (!r.ok) throw new Error('should load');
+    expect(r.warnings).toEqual([]);
+    expect(r.casefile.documents.find((d) => d.id === 'receipt')!.slots.items).toEqual(items);
+  });
+
+  it('keeps the receipt and drops only what is bad, with a reason for each', async () => {
+    const items = { kind: 'items', currency: 'WAYTOOLONG', tax: { mode: 'nope', rate: 20 }, items: [{ name: 'GOOD', price: 1 }, { name: 'BAD', price: 'free' }] };
+    const r = await loadCasefile(await sampleWith({ 'documents/receipt.json': receiptDoc({ items }) }));
+    if (!r.ok) throw new Error('should load');
+    const slot = r.casefile.documents.find((d) => d.id === 'receipt')!.slots.items as { items: unknown[]; tax?: unknown; currency?: unknown };
+    expect(slot.items).toEqual([{ name: 'GOOD', price: 1 }]);
+    expect(slot.tax).toBeUndefined();
+    expect(slot.currency).toBeUndefined();
+    expect(r.warnings).toHaveLength(3);
+    expect(messages(r.warnings)).toContain('slot "items": item 2 ("BAD") was dropped');
+  });
+
+  it('an itemised list with nothing in it is fine', async () => {
+    const r = await loadCasefile(await sampleWith({ 'documents/receipt.json': receiptDoc({ items: { kind: 'items' } }) }));
+    if (!r.ok) throw new Error('should load');
+    expect(r.warnings).toEqual([]);
+    expect((r.casefile.documents.find((d) => d.id === 'receipt')!.slots.items as { items: unknown[] }).items).toEqual([]);
+  });
+
+  it('loads ticked choices, and ignores bad ones with a reason', async () => {
+    const good = await loadCasefile(await sampleWith({ 'documents/receipt.json': receiptDoc({ done: { kind: 'choices', selected: ['a', 'b'] } }) }));
+    if (!good.ok) throw new Error('should load');
+    expect(good.warnings).toEqual([]);
+    const bad = await loadCasefile(await sampleWith({ 'documents/receipt.json': receiptDoc({ done: { kind: 'choices', selected: 'a' } }) }));
+    if (!bad.ok) throw new Error('should load');
+    expect(messages(bad.warnings)).toContain('slot "done"');
+  });
+
+  it('still drops a document that uses a slot kind nobody knows', async () => {
+    const r = await loadCasefile(await sampleWith({ 'documents/receipt.json': receiptDoc({ weird: { kind: 'hologram' } }) }));
+    if (!r.ok) throw new Error('should load');
+    expect(r.casefile.documents.map((d) => d.id)).not.toContain('receipt');
+    expect(messages(r.warnings)).toContain('document dropped');
+  });
+
+  it('a template may label its slots and use the new kinds', async () => {
+    const template = {
+      id: 'form',
+      slots: [{ name: 'who', kind: 'value', label: 'Name:' }, { name: 'lines', kind: 'items' }, { name: 'ticks', kind: 'choices' }],
+      layout: { block: 'stack' },
+    };
+    const r = await loadCasefile(await sampleWith({ 'templates/form.json': template }));
+    if (!r.ok) throw new Error('should load');
+    expect(r.warnings).toEqual([]);
+    expect(r.casefile.templates.form.slots[0]).toMatchObject({ name: 'who', label: 'Name:' });
+  });
+
+  it('a template with a slot kind nobody knows is ignored with a warning, and the episode still opens', async () => {
+    const r = await loadCasefile(await sampleWith({ 'templates/bad.json': { id: 'bad', slots: [{ name: 'x', kind: 'hologram' }], layout: { block: 'stack' } } }));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.warnings).toHaveLength(1);
+  });
+
+  it('the old Markdown receipt table still loads unchanged', async () => {
+    const r = await loadCasefile(fsSource(samplePath));
+    if (!r.ok) throw new Error('should load');
+    expect(r.warnings).toEqual([]);
+    expect(r.casefile.documents.find((d) => d.id === 'receipt')!.slots.items).toMatchObject({ kind: 'markdown' });
+  });
+});

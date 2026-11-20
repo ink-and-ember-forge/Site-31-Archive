@@ -1,6 +1,6 @@
 // Pure helpers the authoring tool uses to create and update an episode's files.
 // Kept here, next to the format, so the tool and the format cannot drift apart.
-import { CURRENT_FORMAT_VERSION, type Layout } from './types';
+import { CURRENT_FORMAT_VERSION, type Layout, type SlotKind } from './types';
 
 /** The episode-level fields the author edits in the form. */
 export interface EpisodeDetails {
@@ -95,8 +95,9 @@ export function starterEpisodeFiles(id: string, title: string, submissionDate: s
 // ---------------------------------------------------------------------------------------------
 export interface TemplateSlot {
   name: string;
-  kind: 'markdown' | 'image' | 'value';
+  kind: SlotKind;
   required?: boolean;
+  label?: string;
 }
 
 /** The parts of a template the tool needs to build a form and a new document. */
@@ -145,6 +146,8 @@ export function newDocumentFiles(id: string, template: TemplateLike): { document
   const files: Record<string, string> = {};
   for (const slot of template.slots) {
     if (slot.kind === 'value') slots[slot.name] = { kind: 'value', value: '' };
+    else if (slot.kind === 'items') slots[slot.name] = { kind: 'items', items: [] };
+    else if (slot.kind === 'choices') slots[slot.name] = { kind: 'choices', selected: [] };
     else if (slot.kind === 'markdown') {
       const file = `documents/${id}.${slot.name}.md`;
       slots[slot.name] = { kind: 'markdown', file };
