@@ -97,8 +97,7 @@ Each hotspot has an `id`, an **anchor** (where it sits) and a **target** (what i
 
 1. **Hotspots in text** are marked spans inside the Markdown; rectangles are used for images and receipts.
 2. **Handwritten documents** are Markdown text rendered with a handwriting font style (a swappable style asset). An image document type remains available for special pages later.
-
-2. **Index** is generated at build from each `case.json`; episodes publish by merging to `main`.
+3. **Index** is generated at build from each `case.json`; episodes publish by merging to `main`.
 
 ## 10. Still to confirm
 
