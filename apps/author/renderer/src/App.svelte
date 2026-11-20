@@ -17,6 +17,9 @@
   let welcomeProblems = $state<Problem[]>([]);
   let saveState = $state<'saved' | 'saving' | 'waiting' | 'failed'>('saved');
   let previewSrc = $state('');
+  let previewId = ''; // the episode the preview frame was opened on
+  let viewerReady = false; // the viewer has told us its table is on screen
+  let focusWanted: string | null = null; // the document the preview should be showing in front, if any
   let previewFrame = $state<HTMLIFrameElement>();
   const timers: Record<string, ReturnType<typeof setTimeout>> = {};
 
@@ -25,6 +28,7 @@
   function load(state: EpisodeState) {
     episode = state;
     selected = null;
+    focusWanted = null;
     form = { ...state.details };
     orderText = state.details.order === undefined ? '' : String(state.details.order);
     saveState = 'saved';
@@ -87,27 +91,65 @@
       });
     });
 
+  // ---- the preview -------------------------------------------------------------------------------
+
+  /** Sends a command to the viewer in the preview frame. Only that frame, and only from this window, is trusted. */
+  function toViewer(command: { type: 'reload' } | { type: 'focus'; doc: string | null }) {
+    previewFrame?.contentWindow?.postMessage({ source: 'archive-author', ...command }, 'app://viewer');
+  }
+
+  /** Brings a document to the front of the preview (or puts everything back with null), now or as soon as the viewer is ready. */
+  function focusDoc(id: string | null) {
+    focusWanted = id;
+    if (viewerReady) toViewer({ type: 'focus', doc: id });
+  }
+
+  /** Editing a document's content brings it forward so the author can see the edit; editing its position puts the table back so they can see the move. */
+  const editAutosave = (key: string, action: Action) => {
+    if (key === 'layout') focusDoc(null);
+    else if (selected) focusDoc(selected);
+    autosave(key, action);
+  };
+
+  function select(id: string | null) {
+    selected = id;
+    focusDoc(id);
+  }
+
   async function addDocument(template: string, name: string) {
     const before = new Set(episode?.documents.map((d) => d.id));
     const result = await now(() => window.author.addDocument(template, name));
     // Go straight to the new document so the author can start filling it in.
-    if (result?.ok) selected = result.value.documents.find((d) => !before.has(d.id))?.id ?? null;
+    if (result?.ok) select(result.value.documents.find((d) => !before.has(d.id))?.id ?? null);
   }
 
   // ---- the preview ----------------------------------------------------------------------------
 
   onMount(() => {
     const stopPreview = window.author.onPreview(({ version, id }) => {
-      // The viewer opens straight onto this episode's table, without the opening animation, so edits appear at once.
-      // The version stops it showing a cached copy.
-      previewSrc = `app://viewer/?instant&v=${version}#/${id}`;
+      if (!previewSrc || previewId !== id) {
+        // A new episode: open the viewer on it, without the opening animation. The version stops a cached copy showing.
+        previewId = id;
+        viewerReady = false;
+        previewSrc = `app://viewer/?instant&v=${version}#/${id}`;
+      } else {
+        // The same episode: leave the frame alone and have the viewer reload quietly, so the author's zoom, positions and
+        // focus are kept and they can see what the edit did.
+        toViewer({ type: 'reload' });
+      }
     });
 
     // The viewer tells us what the author did on the table: clicked a document, or dropped one somewhere new.
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== 'app://viewer' || event.source !== previewFrame?.contentWindow) return;
       const m = event.data as { source?: string; type?: string; doc?: unknown; x?: unknown; y?: unknown };
-      if (m?.source !== 'archive-viewer' || typeof m.doc !== 'string' || !episode) return;
+      if (m?.source !== 'archive-viewer') return;
+      if (m.type === 'ready') {
+        viewerReady = true;
+        toViewer({ type: 'focus', doc: focusWanted });
+        return;
+      }
+      if (typeof m.doc !== 'string' || !episode) return;
       const doc = episode.documents.find((d) => d.id === m.doc);
       if (!doc) return;
       if (m.type === 'select') selected = doc.id;
@@ -152,10 +194,10 @@
 
       {#if selectedDoc}
         {#key selectedDoc.id}
-          <DocumentEditor doc={selectedDoc} {autosave} {now} onback={() => (selected = null)} />
+          <DocumentEditor doc={selectedDoc} autosave={editAutosave} {now} onback={() => select(null)} />
         {/key}
       {:else}
-        <EpisodePanel {episode} bind:form bind:orderText onchange={saveDetails} onselect={(id) => (selected = id)} onadd={addDocument} />
+        <EpisodePanel {episode} bind:form bind:orderText onchange={saveDetails} onselect={select} onadd={addDocument} />
       {/if}
 
       <Problems problems={episode.problems} />

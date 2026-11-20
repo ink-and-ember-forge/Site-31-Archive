@@ -4,7 +4,8 @@
   import type { LoadedDoc } from './lib/episode';
   import type { NoteVariant } from '@archive/casefile';
   import type { MdBlock } from './lib/markdown';
-  import { instant, notifyAuthor } from './lib/author';
+  import { announceReady, instant, notifyAuthor, onAuthorCommand } from './lib/author';
+  import { syncStates, type Seen, type TableState } from './lib/tablestate';
   import { placeNotes } from './lib/notes';
   import { STRINGS } from './lib/strings';
   import type { RegistryResolver } from './lib/registry';
@@ -20,31 +21,22 @@
     onback: () => void;
   } = $props();
 
-  interface State {
-    x: number;
-    y: number;
-    zoom: number;
-    z: number;
-    entered: boolean;
-    /** Hidden documents only exist on the table once a hotspot reveals them. */
-    revealed: boolean;
-    /** Where the document starts from when it enters (percent of the table). */
-    fromLeft: number;
-    fromTop: number;
-    /** The document's real width over height, measured when it is focused. */
-    shape?: number;
-  }
+  type State = TableState;
 
   // With animation off (reduced motion, or the authoring tool's preview) documents start in place, not tucked in the folder.
   const reduced = instant || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-  const all = untrack(() => docs);
-  const byId = Object.fromEntries(all.map((d) => [d.id, d]));
-  const opening = all.filter((d) => !d.hidden); // these come out of the folder in turn
+  // The documents can change while the table is on screen (the authoring tool reloads the episode after each edit), so these
+  // follow `docs`. What the table remembers about each document (see tablestate.ts) survives that.
+  const all = $derived(docs);
+  const byId = $derived(Object.fromEntries(all.map((d) => [d.id, d])));
+  const initial = untrack(() => docs);
+  const opening = initial.filter((d) => !d.hidden); // these come out of the folder in turn
   const order = Object.fromEntries(opening.map((d, i) => [d.id, i]));
+  let seen: Record<string, Seen> = Object.fromEntries(initial.map((d) => [d.id, { x: d.layout.x, y: d.layout.y, hidden: d.hidden }]));
   let states = $state<Record<string, State>>(
     Object.fromEntries(
-      all.map((d, i) => [
+      initial.map((d, i) => [
         d.id,
         { x: d.layout.x, y: d.layout.y, zoom: 1, z: i + 1, entered: reduced && !d.hidden, revealed: !d.hidden, fromLeft: 50, fromTop: 0 },
       ]),
@@ -57,7 +49,7 @@
   let folderOpen = $state(false);
   let folderGone = $state(reduced);
   let settled = $state(reduced);
-  let topZ = all.length + 1;
+  let topZ = initial.length + 1;
   let dragging = $state<string | null>(null);
   let drag: { id: string; el: HTMLElement; pid: number; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null = null;
 
@@ -68,8 +60,67 @@
   let tableEl: HTMLDivElement;
   const openFor = (docId: string) => notes.filter((n) => n.docId === docId).map((n) => n.hotspotId);
 
+  /** The document's real shape, measured, so the focused view fits it however long its content is. */
+  function measureShape(id: string) {
+    const paper = tableEl?.querySelector<HTMLElement>(`[data-doc="${id}"] .paper`);
+    if (paper && paper.offsetHeight > 0 && states[id]) states[id].shape = paper.offsetWidth / paper.offsetHeight;
+  }
+
+  // Bring the table in line with freshly loaded documents without resetting it.
+  $effect(() => {
+    const list = docs;
+    untrack(() => {
+      const synced = syncStates(states, seen, list, topZ);
+      states = synced.states;
+      seen = synced.seen;
+      topZ = synced.topZ;
+      const byDoc = new Map(list.map((d) => [d.id, d]));
+      // Open notes show the latest wording, and close if their note is gone.
+      notes = notes.flatMap((n) => {
+        const fresh = byDoc.get(n.docId)?.lightboxes[n.hotspotId];
+        return fresh ? [{ ...n, variant: fresh.variant, title: fresh.title, blocks: fresh.blocks }] : [];
+      });
+      if (pendingFocus && states[pendingFocus]) {
+        const id = pendingFocus;
+        pendingFocus = null;
+        focusFromAuthor(id);
+      }
+      if (focused && !byDoc.has(focused)) focused = null;
+      else if (focused) {
+        const id = focused;
+        void tick().then(() => measureShape(id)); // its content may have grown or shrunk
+      }
+    });
+  });
+
+  let pendingFocus: string | null = null;
+
+  /** The authoring tool brings a document forward so the author can see what they are editing. */
+  function focusFromAuthor(id: string | null) {
+    if (id === null) {
+      focused = null;
+      return;
+    }
+    const s = states[id];
+    if (!s) {
+      pendingFocus = id; // a document the tool has just added: focus it as soon as it has loaded
+      return;
+    }
+    if (!s.revealed) {
+      // A hidden document is shown while it is being edited, so there is something to look at.
+      s.revealed = true;
+      s.entered = true;
+    }
+    s.z = ++topZ;
+    focused = id;
+    void tick().then(() => measureShape(id));
+  }
 
   onMount(() => {
+    const stopCommands = onAuthorCommand((command) => {
+      if (command.type === 'focus') focusFromAuthor(command.doc);
+    });
+    announceReady();
     const timers: number[] = [];
     if (reduced) {
       folderGone = settled = true;
@@ -90,6 +141,7 @@
     };
     window.addEventListener('keydown', key);
     return () => {
+      stopCommands();
       timers.forEach(clearTimeout);
       window.removeEventListener('keydown', key);
     };
@@ -130,11 +182,7 @@
   }
   function toggleFocus(id: string) {
     focused = focused === id ? null : id;
-    if (focused) {
-      // Size the focused view from the document's real shape: a long statement is taller than its template's guess.
-      const paper = tableEl.querySelector<HTMLElement>(`[data-doc="${id}"] .paper`);
-      if (paper && paper.offsetHeight > 0) states[id].shape = paper.offsetWidth / paper.offsetHeight;
-    }
+    if (focused) measureShape(id); // a long statement is taller than its template's guess
     if (focused) states[id].z = ++topZ;
   }
 
@@ -282,7 +330,7 @@
     {/if}
 
     {#each all as d (d.id)}
-      {#if states[d.id].revealed}
+      {#if states[d.id]?.revealed}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
         <div
           class="doc"

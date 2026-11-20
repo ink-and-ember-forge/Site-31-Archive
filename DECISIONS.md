@@ -238,6 +238,16 @@ row; item lists are re-checked strictly in the main process; and the window may 
 format package (a test enforces it, after a blank-window bug caused by importing the whole package). One pull request carries
 the document forms work, as agreed, because releasing step 2 alone would have left the tool unable to edit receipts.
 
+## 2026-11-20: The preview keeps its place while you edit, and follows the document being edited
+
+The author found that every edit reloaded the preview, resetting zoom and positions, and asked that the edited document be
+brought into view. Now the tool sends the viewer a "reload" message instead of replacing the frame, and the viewer swaps in the
+new episode while keeping each document's drag, zoom and stacking (`tablestate.ts`, unit tested). A document's position follows
+the file only when the file's own position changed (typing numbers), so width or tilt edits never snap a dragged document back.
+Selecting or editing a document focuses it in the preview; editing positions steps back to the table so the move is visible.
+New documents appear in place, a hidden document is revealed when it is the one being edited, and a failed reload leaves the old
+table on screen. The messages are origin-checked in both directions, and do nothing on the public website.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
