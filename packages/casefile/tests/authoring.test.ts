@@ -76,3 +76,113 @@ describe('starterEpisodeFiles', () => {
     expect(result.casefile.manifest).toMatchObject({ title: 'My Episode', submissionDate: '2026-03-14', centralDocument: 'statement' });
   });
 });
+
+import {
+  addDocumentToManifest,
+  clampLayout,
+  defaultLayout,
+  imageFileName,
+  newDocumentFiles,
+  removeDocumentFromManifest,
+  setCentralInManifest,
+  setHiddenInManifest,
+  setLayoutInManifest,
+  uniqueId,
+} from '../src/authoring';
+
+describe('uniqueId', () => {
+  it('keeps a free id and numbers a taken one', () => {
+    expect(uniqueId('receipt', [])).toBe('receipt');
+    expect(uniqueId('receipt', ['receipt'])).toBe('receipt-2');
+    expect(uniqueId('receipt', ['receipt', 'receipt-2'])).toBe('receipt-3');
+  });
+});
+
+describe('layout', () => {
+  it('keeps values inside what the format allows and drops a zero rotation', () => {
+    expect(clampLayout({ x: -1, y: 2, width: 5, rotation: 0 })).toEqual({ x: 0, y: 1, width: 1 });
+    expect(clampLayout({ x: 0.5, y: 0.5, width: 0, rotation: 400 })).toEqual({ x: 0.5, y: 0.5, width: 0.05, rotation: 180 });
+    expect(clampLayout({ x: NaN, y: NaN, width: NaN })).toEqual({ x: 0, y: 0, width: 0.2 });
+  });
+  it('sizes new documents by their shape and staggers them', () => {
+    const tall = defaultLayout(0.45, 0);
+    const wide = defaultLayout(1.33, 0);
+    expect(tall.width).toBeLessThan(wide.width);
+    expect(wide.width).toBeLessThanOrEqual(0.3);
+    expect(defaultLayout(0.7, 1).x).toBeGreaterThan(defaultLayout(0.7, 0).x);
+    expect(defaultLayout(undefined, 0).width).toBeGreaterThan(0);
+  });
+});
+
+describe('newDocumentFiles', () => {
+  const template = { id: 'receipt', slots: [{ name: 'store', kind: 'value' as const }, { name: 'items', kind: 'markdown' as const }, { name: 'logo', kind: 'image' as const }] };
+  it('makes empty slots for text and values, and leaves images to be chosen', () => {
+    const { document, files } = newDocumentFiles('till-roll', template);
+    expect(document).toEqual({
+      template: 'receipt',
+      role: 'supporting',
+      slots: { store: { kind: 'value', value: '' }, items: { kind: 'markdown', file: 'documents/till-roll.items.md' } },
+    });
+    expect(files).toEqual({ 'documents/till-roll.items.md': '' });
+  });
+  it('makes a document the loader accepts', async () => {
+    const { document, files } = newDocumentFiles('till-roll', template);
+    const base = starterEpisodeFiles('ep', 'Ep', '2026-01-01');
+    const manifest = JSON.parse(base['case.json']);
+    const updated = addDocumentToManifest(manifest, 'till-roll', defaultLayout(0.45, 1));
+    const result = await loadCasefile(
+      memorySource({ ...base, 'case.json': serializeManifest(updated), 'documents/till-roll.json': JSON.stringify(document), ...files }),
+      { expectedId: 'ep' },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.warnings).toEqual([]);
+  });
+});
+
+describe('manifest edits', () => {
+  const base = {
+    formatVersion: 1,
+    id: 'x',
+    centralDocument: 'a',
+    documents: [
+      { id: 'a', layout: { x: 0.1, y: 0.1, width: 0.3 } },
+      { id: 'b', layout: { x: 0.5, y: 0.1, width: 0.2 }, hidden: true },
+    ],
+    extra: 'kept',
+  };
+  it('adds and removes a document, leaving everything else alone', () => {
+    const added = addDocumentToManifest(base, 'c', { x: 0.2, y: 0.2, width: 0.2 });
+    expect((added.documents as { id: string }[]).map((d) => d.id)).toEqual(['a', 'b', 'c']);
+    expect(added.extra).toBe('kept');
+    expect((removeDocumentFromManifest(added, 'b').documents as { id: string }[]).map((d) => d.id)).toEqual(['a', 'c']);
+  });
+  it('making a hidden document the main one also un-hides it', () => {
+    const next = setCentralInManifest(base, 'b');
+    expect(next.centralDocument).toBe('b');
+    expect((next.documents as { id: string; hidden?: boolean }[]).find((d) => d.id === 'b')).not.toHaveProperty('hidden');
+  });
+  it('never hides the main document, and can show a hidden one again', () => {
+    expect(setHiddenInManifest(base, 'a', true)).toBe(base);
+    const hidden = setHiddenInManifest(base, 'a', true);
+    expect(hidden).toEqual(base);
+    const shown = setHiddenInManifest(base, 'b', false);
+    expect((shown.documents as { id: string }[]).find((d) => d.id === 'b')).not.toHaveProperty('hidden');
+    const hiddenA = setHiddenInManifest({ ...base, centralDocument: 'x' }, 'a', true);
+    expect((hiddenA.documents as { id: string; hidden?: boolean }[])[0].hidden).toBe(true);
+  });
+  it('changes only the one document layout, clamped', () => {
+    const next = setLayoutInManifest(base, 'a', { x: 3, y: 0.3, width: 0.4 });
+    expect((next.documents as { layout: unknown }[])[0].layout).toEqual({ x: 1, y: 0.3, width: 0.4 });
+    expect((next.documents as { layout: unknown }[])[1].layout).toEqual({ x: 0.5, y: 0.1, width: 0.2 });
+  });
+});
+
+describe('imageFileName', () => {
+  it('makes a safe lowercase name and never overwrites', () => {
+    expect(imageFileName('Photo From Scene #2.JPG', [])).toBe('photo-from-scene-2.jpg');
+    expect(imageFileName('scan.png', ['scan.png'])).toBe('scan-2.png');
+    expect(imageFileName('???.png', [])).toBe('image.png');
+    expect(imageFileName('noextension', [])).toBe('noextension');
+    expect(imageFileName('../../etc/passwd.txt', [])).toBe('etc-passwd.txt');
+  });
+});

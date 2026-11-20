@@ -1,6 +1,6 @@
 # Authoring tool v0
 
-**Status: approved by the author on 2026-11-20. Build step 1 of 5 is done (see the end).** It follows the choices made on 2026-11-20:
+**Status: approved by the author on 2026-11-20. Build steps 1 and 2 of 5 are done (see the end).** It follows the choices made on 2026-11-20:
 the tool comes first, editing is **forms beside the real viewer**, and a finished episode reaches the
 repo by **saving to a folder that the author uploads on GitHub**.
 
@@ -112,8 +112,8 @@ Each step ships as a release, so the author can install it and try it.
 | Step | Status |
 | --- | --- |
 | 1. Shell and live preview | **Built.** Create or open an episode folder, edit the episode details with autosave, and see the real viewer update beside the forms. Problems are listed in plain English. |
-| 2. Documents | Next |
-| 3. Hotspots | |
+| 2. Documents | **Built.** Add a document by type and name, fill it in through a form generated from its template (values, text, images), drag it into place on the preview or type exact positions, choose the main document, hide or remove one. |
+| 3. Hotspots | Next |
 | 4. Registry and problems | |
 | 5. Hardening | |
 
@@ -123,3 +123,10 @@ Decisions made while building step 1:
 - The folder you save into is named after the episode id, and the id is made from the title once and then never changes.
 - An episode that cannot open at all is refused with the reasons; one that opens with warnings is opened and the warnings are listed.
 - The viewer and theme ship beside the app as real files (not inside its archive) so the app can serve them.
+- Document text is edited in a plain text box beside the preview (the author's choice), not typed onto the page.
+- Dragging a document on the preview saves its position without rebuilding the preview, since the viewer already shows the move.
+- Clicking a document on the preview selects it in the forms. The viewer reports both through two small author-only messages (`select`, `layout`) and does nothing of the kind on the website.
+- Editing a document only ever changes the part being edited. Hotspots and any other fields in the same file are kept exactly as they were.
+- Removing a document deletes its own text files after a confirmation, and keeps its images, since other documents may use them.
+- A hidden document is not shown in the preview (a reader would not see it until a hotspot opens it), so its position is set with the number boxes.
+- A document's look (its style) is not chosen in the tool yet; each template uses its default style.

@@ -19,6 +19,7 @@ export function hintFor(issue: Issue): string | undefined {
   if (m.includes('unknown template')) return 'Use a template that exists in the theme/ folder, or add a new template there.';
   if (m.includes('unknown style')) return 'Use a style that exists in the theme/ folder, or add a new style there.';
   if (m.includes('never opened by any hotspot')) return 'Add a hotspot that opens this document, or remove "hidden": true.';
+  if (m.includes('expects slot')) return 'This type of document has a part that is not filled in yet. Fill it in, or choose it in the document form.';
   if (m.includes('must have required property')) return 'A required field is missing. See docs/writing-an-episode.md.';
   return undefined;
 }

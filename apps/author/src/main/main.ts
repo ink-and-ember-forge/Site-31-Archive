@@ -1,7 +1,9 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
 import { checkDetails, type EpisodeDetails } from '@archive/casefile/authoring';
+import type { Layout } from '@archive/casefile';
 import type { EpisodeState, Result } from '../shared/api';
+import { IMAGE_EXTENSIONS } from './documents';
 import { EpisodeSession, type Locations } from './episode';
 import { handleScheme, registerScheme } from './protocol';
 
@@ -72,6 +74,43 @@ function registerIpc(): void {
     if (!saved.ok) return saved;
     await refreshPreview();
     return { ok: true, value: await session.state() };
+  });
+
+  // Document actions: check the arguments, make the change, rebuild the preview, send back the new state.
+  const text = (v: unknown, max = 200_000): v is string => typeof v === 'string' && v.length <= max;
+  const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+  const done = async (change: Result<unknown>, refresh = true): Promise<Result<EpisodeState>> => {
+    if (!session) return { ok: false, message: 'No episode is open.' };
+    if (!change.ok) return change;
+    if (refresh) await refreshPreview();
+    return { ok: true, value: await session.state() };
+  };
+  const bad: Result<never> = { ok: false, message: 'That could not be done.' };
+
+  ipcMain.handle('author:add-document', (_e, template: unknown, name: unknown) =>
+    session && text(template, 100) && text(name, 200) ? done(session.addDocument(template, name)) : bad);
+  ipcMain.handle('author:remove-document', (_e, id: unknown) => (session && text(id, 100) ? done(session.removeDocument(id)) : bad));
+  ipcMain.handle('author:set-central', (_e, id: unknown) => (session && text(id, 100) ? done(session.setCentral(id)) : bad));
+  ipcMain.handle('author:set-hidden', (_e, id: unknown, hidden: unknown) =>
+    session && text(id, 100) && typeof hidden === 'boolean' ? done(session.setHidden(id, hidden)) : bad);
+  ipcMain.handle('author:set-layout', (_e, id: unknown, layout: unknown, refresh: unknown) => {
+    const l = layout as Partial<Layout> | null;
+    if (!session || !text(id, 100) || !l || !num(l.x) || !num(l.y) || !num(l.width) || (l.rotation !== undefined && !num(l.rotation))) return bad;
+    return done(session.setLayout(id, { x: l.x, y: l.y, width: l.width, rotation: l.rotation }), refresh !== false);
+  });
+  ipcMain.handle('author:set-slot-text', (_e, id: unknown, slot: unknown, value: unknown) =>
+    session && text(id, 100) && text(slot, 100) && text(value) ? done(session.setSlotText(id, slot, value)) : bad);
+  ipcMain.handle('author:set-image-alt', (_e, id: unknown, slot: unknown, alt: unknown) =>
+    session && text(id, 100) && text(slot, 100) && text(alt, 1000) ? done(session.setImageAlt(id, slot, alt)) : bad);
+  ipcMain.handle('author:choose-image', async (_e, id: unknown, slot: unknown) => {
+    if (!session || !text(id, 100) || !text(slot, 100)) return bad;
+    const picked = await dialog.showOpenDialog(win!, {
+      title: 'Choose an image',
+      properties: ['openFile'],
+      filters: [{ name: 'Images', extensions: IMAGE_EXTENSIONS }],
+    });
+    if (picked.canceled || picked.filePaths.length === 0) return null;
+    return done(session.importImage(id, slot, picked.filePaths[0]));
   });
 
   ipcMain.handle('author:reveal', () => {

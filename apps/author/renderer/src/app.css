@@ -20,3 +20,5 @@ button:disabled { opacity: 0.5; cursor: default; }
 input { font: inherit; color: inherit; background: #1a1510; border: 1px solid var(--line); border-radius: 4px; padding: 0.4rem 0.5rem; width: 100%; }
 label { display: block; margin-bottom: 0.9rem; }
 label > span { display: block; margin-bottom: 0.25rem; color: var(--muted); font-size: 0.85rem; }
+
+code { background: #1a1510; padding: 0.05rem 0.3rem; border-radius: 3px; }

@@ -175,7 +175,18 @@ files and saving live in `packages/casefile` so the format has one owner. The ap
 its release, so its preview matches the app's version, not necessarily the live site. The packaged Linux build was run
 end to end in the sandbox; Windows and macOS builds are produced by the release workflow.
 
+## 2026-11-20: Authoring tool step 2 (documents) built
+
+Documents can be added by type and name, filled through forms generated from their template (a value is a box, text is a
+text area, an image is a file chooser that copies it into the episode with a description), placed by dragging on the
+preview or by number, made the main document, hidden, or removed. The author chose a plain text box for document text
+(not typing onto the page itself). The preview opens documents in place instead of sliding them out of the folder, since
+it reloads on each edit; this also applies when the reader has reduced motion on. Every edit changes only what it means
+to, so hotspots and unknown fields in a document file are preserved, ids and file paths are validated so nothing can be
+written outside the episode folder, and tests cover these. The author asked to hold the pull request until step 2 was
+finished, so steps 1 and 2 ship together.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
-document types after the witness statement, house style. Next: authoring tool step 2 (documents), then 3 to 5.
+document types after the witness statement, house style. Next: authoring tool step 3 (hotspots), then 4 and 5.

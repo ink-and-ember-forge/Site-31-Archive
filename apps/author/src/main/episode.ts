@@ -13,7 +13,9 @@ import {
   type EpisodeDetails,
 } from '@archive/casefile/authoring';
 import { buildArchive, checkEpisodeFolder, loadThemeFromFs } from '@archive/casefile/node';
+import type { Layout } from '@archive/casefile';
 import type { EpisodeState, Problem, Result } from '../shared/api';
+import { DocumentFiles, templateInfos } from './documents';
 
 export interface Locations {
   /** The shared theme (templates and styles) that ships with the app. */
@@ -26,11 +28,15 @@ export const toProblems = (issues: Issue[]): Problem[] =>
   issues.map((i) => ({ severity: i.severity, path: i.path, message: i.message, hint: hintFor(i) }));
 
 export class EpisodeSession {
+  private readonly files: DocumentFiles;
+
   private constructor(
     readonly folder: string,
     readonly id: string,
     private readonly where: Locations,
-  ) {}
+  ) {
+    this.files = new DocumentFiles(folder, () => loadThemeFromFs(where.themeDir).theme.templates);
+  }
 
   /** Creates `<parent>/<id>` from the title, with a valid placeholder document, and opens it. */
   static async create(parent: string, title: string, where: Locations, today = todayIso()): Promise<Result<EpisodeSession>> {
@@ -88,8 +94,25 @@ export class EpisodeSession {
   }
 
   async state(): Promise<EpisodeState> {
-    return { folder: this.folder, id: this.id, details: this.details(), problems: await this.problems() };
+    return {
+      folder: this.folder,
+      id: this.id,
+      details: this.details(),
+      documents: this.files.view(),
+      templates: templateInfos(loadThemeFromFs(this.where.themeDir).theme.templates),
+      problems: await this.problems(),
+    };
   }
+
+  // Document changes. Each returns quickly and the caller rebuilds the preview afterwards.
+  addDocument = (template: string, name: string) => this.files.add(template, name);
+  removeDocument = (id: string) => this.files.remove(id);
+  setCentral = (id: string) => this.files.setCentral(id);
+  setHidden = (id: string, hidden: boolean) => this.files.setHidden(id, hidden);
+  setLayout = (id: string, layout: Layout) => this.files.setLayout(id, layout);
+  setSlotText = (id: string, slot: string, text: string) => this.files.setText(id, slot, text);
+  importImage = (id: string, slot: string, sourcePath: string) => this.files.importImage(id, slot, sourcePath);
+  setImageAlt = (id: string, slot: string, alt: string) => this.files.setImageAlt(id, slot, alt);
 
   /** Packages the episode exactly as the website does, so the real viewer can show it. */
   async buildPreview(): Promise<void> {
