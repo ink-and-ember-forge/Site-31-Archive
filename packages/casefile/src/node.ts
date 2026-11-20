@@ -60,7 +60,7 @@ export function loadThemeFromFs(themeDir: string): ThemeLoad {
   const issues: Issue[] = [];
   const read = <T>(sub: string, validate: typeof validateTemplate | typeof validateStyle, into: Record<string, T>) => {
     for (const file of walk(join(themeDir, sub)).filter((f) => f.endsWith('.json')).sort()) {
-      const path = `theme/${sub}/${file.slice(file.lastIndexOf(sep) + 1)}`;
+      const path = `theme/${sub}/${folderName(file)}`;
       try {
         const value = JSON.parse(readFileSync(file, 'utf8')) as { id?: string };
         if (!validate(value)) issues.push({ severity: 'error', path, message: describeErrors(validate) });
@@ -74,6 +74,12 @@ export function loadThemeFromFs(themeDir: string): ThemeLoad {
   read<Style>('styles', validateStyle, theme.styles);
   return { theme, issues };
 }
+
+/**
+ * The last part of a path, whichever separator is used. Windows accepts both `\\` and `/`, and paths
+ * often mix them, so splitting on the system separator alone is not enough.
+ */
+export const folderName = (path: string): string => path.split(/[\\/]/).filter(Boolean).pop() ?? '';
 
 /** Episode folders in `episodesDir` (hidden and `_`-prefixed folders are skipped). */
 export function listEpisodeFolders(episodesDir: string): string[] {
@@ -94,7 +100,7 @@ export interface EpisodeCheck {
 
 /** Loads one episode folder and checks it against the theme. The folder name is the episode id. */
 export async function checkEpisodeFolder(folder: string, theme: Theme): Promise<EpisodeCheck> {
-  const id = folder.slice(folder.lastIndexOf(sep) + 1);
+  const id = folderName(folder);
   const result = await loadCasefile(fsSource(folder), { expectedId: id });
   if (!result.ok) return { id, errors: result.errors, warnings: result.warnings };
   return { id, errors: [], warnings: [...result.warnings, ...checkAgainstTheme(result.casefile, theme)], casefile: result.casefile };

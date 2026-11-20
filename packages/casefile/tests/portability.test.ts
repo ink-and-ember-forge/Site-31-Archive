@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync } from 'no
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { folderName } from '../src/node';
 
 const repo = resolve(__dirname, '../../..');
 
@@ -17,6 +18,15 @@ function sources(dir: string): string[] {
 }
 
 describe('Windows portability', () => {
+  it('finds an episode folder name whichever separators the path uses', () => {
+    expect(folderName('/repo/episodes/my-episode')).toBe('my-episode');
+    expect(folderName('D:\\a\\repo\\episodes\\my-episode')).toBe('my-episode');
+    // Windows paths often mix the two: this is what broke the first Windows CI run.
+    expect(folderName('D:\\a\\repo\\fixtures/valid/sample-placeholder')).toBe('sample-placeholder');
+    expect(folderName('D:\\a\\repo\\episodes\\my-episode\\')).toBe('my-episode');
+    expect(folderName('')).toBe('');
+  });
+
   it('no source turns a file URL into a path with .pathname (it gives "/D:/..." on Windows)', () => {
     const offenders = ['packages', 'apps']
       .flatMap((d) => sources(join(repo, d)))

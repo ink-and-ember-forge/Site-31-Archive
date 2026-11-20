@@ -196,6 +196,9 @@ any source builds a path from `.pathname`, and the archive command is tested fro
 Cause of the miss: everything was tested on Linux only. CI now runs the checks on Windows as well as Linux, and builds the
 Windows app (without the installer) on every pull request, so a Windows-only problem shows up before a release.
 The v0.1.2 release has no Windows installer; the fix ships in the next release.
+The first Windows CI run proved its worth at once: 66 of 67 tests passed and the Windows app packaged, but one test failed
+because an episode's id was taken from its folder path by splitting on the system separator, which breaks on Windows paths that
+mix `\` and `/`. It now splits on both (`folderName`), with a test.
 
 ## Still open (from the design document)
 
