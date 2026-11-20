@@ -132,6 +132,17 @@ the first stable release. The author wants 0.1.0, since the viewer and authoring
 is set with a one-time `Release-As: 0.1.0` commit footer, not a config setting, so it does not keep forcing
 the version on later releases. Move to 1.0.0 deliberately when the first real episode ships.
 
+## 2026-11-20: Installer build fixed after the first release failed
+
+The v0.1.0 installer jobs failed on all three platforms. Causes found and fixed: Electron was a version range
+(electron-builder needs an exact version, now pinned to 45.4.1); the Linux executable name was derived from the
+scoped package name (now `archive-author`); electron-builder crashed generating auto-update info without a publish
+target (publishing disabled, since the workflow uploads installers itself); and installers would have been labelled
+0.0.0 because release-please only bumps the root version (the release version is now passed to the build).
+The Linux AppImage build was verified end to end in the sandbox; the Mac and Windows builds could not be tested
+there. **v0.1.0 has no installers attached**; the fix ships in the next release (0.1.1).
+Note for later: when upgrading Electron, update the pinned version by hand.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
