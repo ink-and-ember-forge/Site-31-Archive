@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.4](https://github.com/ink-and-ember-forge/Site-31-Archive/compare/site-31-archive-v0.1.3...site-31-archive-v0.1.4) (2026-11-20)
+
+
+### Features
+
+* **author:** forms that mirror each document's paper, and a receipt item table ([dd2ab91](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/dd2ab91bf62ba26a9a40fb858eec4620bbf9035f))
+* **casefile:** itemised lists, ticked choices and slot labels ([319619c](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/319619cd2101da04f6f1e78aeeb8c69567214c6c))
+* richer form and receipt documents, with forms that mirror them in the authoring tool ([316f8b8](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/316f8b86d29bce7b0e8c52d3149feecbe7f4c037))
+* **viewer:** form and receipt documents (document forms step 2) ([7b9c9c0](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/7b9c9c099c323a06126f9fe8e54e2f6200ec5d92))
+
 ## [0.1.3](https://github.com/ink-and-ember-forge/Site-31-Archive/compare/site-31-archive-v0.1.2...site-31-archive-v0.1.3) (2026-11-20)
 
 
