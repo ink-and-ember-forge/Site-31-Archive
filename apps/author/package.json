@@ -1,0 +1,32 @@
+{
+  "name": "@archive/author",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Archive authoring tool (Electron desktop app).",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-renderer.mjs",
+    "dev": "npm run build && electron .",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "package": "npm run build && electron-builder --publish never"
+  },
+  "dependencies": {
+    "@archive/casefile": "*"
+  },
+  "devDependencies": {
+    "electron": "^45.4.0",
+    "electron-builder": "^26.0.0",
+    "typescript": "^5.9.0",
+    "@types/node": "^22.0.0"
+  },
+  "build": {
+    "appId": "com.site31.archive.author",
+    "productName": "Archive Author",
+    "files": ["dist/**/*", "package.json"],
+    "directories": { "output": "release" },
+    "mac": { "target": "dmg" },
+    "win": { "target": "nsis" },
+    "linux": { "target": "AppImage" }
+  }
+}

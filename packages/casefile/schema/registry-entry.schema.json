@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "registry-entry.schema.json",
+  "title": "Registry entry (registry/<entry-id>.json), format v1",
+  "type": "object",
+  "required": ["id", "kind", "title"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "kind": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "fields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "value"],
+        "properties": { "label": { "type": "string" }, "value": { "type": "string" } }
+      }
+    },
+    "body": { "type": "string" },
+    "references": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*/[a-z0-9]+(-[a-z0-9]+)*$" }
+    }
+  }
+}

@@ -1,0 +1,2 @@
+{ "id": "receipt-thermal", "name": "Thermal receipt (PLACEHOLDER starter)", "placeholder": true,
+  "tokens": { "fontFamily": "'Courier New', monospace", "fontSize": "12px", "ink": "#333333", "paper": "#ffffff" } }

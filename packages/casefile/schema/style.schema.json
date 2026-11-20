@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "style.schema.json",
+  "title": "Document style, format v1",
+  "type": "object",
+  "required": ["id", "tokens"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "name": { "type": "string" },
+    "placeholder": { "type": "boolean" },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": { "type": ["string", "number"] }
+    },
+    "fonts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["family"],
+        "properties": { "family": { "type": "string" }, "file": { "type": "string" } }
+      }
+    }
+  }
+}

@@ -1,0 +1,2 @@
+{ "id": "handwritten-ink", "name": "Handwritten ink (PLACEHOLDER starter)", "placeholder": true,
+  "tokens": { "fontFamily": "cursive", "fontSize": "20px", "ink": "#1d2a5c", "paper": "#fbf8ee" } }

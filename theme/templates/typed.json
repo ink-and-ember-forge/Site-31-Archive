@@ -1,0 +1,18 @@
+{
+  "id": "typed",
+  "name": "Typed page (PLACEHOLDER starter)",
+  "placeholder": true,
+  "defaultStyle": "typed-paper",
+  "aspect": 0.707,
+  "slots": [
+    { "name": "title", "kind": "value" },
+    { "name": "body", "kind": "markdown", "required": true }
+  ],
+  "layout": {
+    "block": "stack",
+    "children": [
+      { "block": "title", "slot": "title" },
+      { "block": "paragraph", "slot": "body" }
+    ]
+  }
+}

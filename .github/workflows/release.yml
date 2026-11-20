@@ -1,0 +1,54 @@
+name: Release
+
+# release-please keeps a release PR open. Merging it updates CHANGELOG.md,
+# bumps the version, tags a release, and this workflow then attaches the
+# authoring-tool installers for each OS to that release.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  author-installers:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run package -w @archive/author
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false" # unsigned builds for now
+      - name: Upload installers to the release
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(apps/author/release/*.dmg apps/author/release/*.exe apps/author/release/*.AppImage)
+          gh release upload "${{ needs.release-please.outputs.tag_name }}" "${files[@]}" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

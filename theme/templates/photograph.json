@@ -1,0 +1,18 @@
+{
+  "id": "photograph",
+  "name": "Photograph (PLACEHOLDER starter)",
+  "placeholder": true,
+  "defaultStyle": "photo-print",
+  "aspect": 1.33,
+  "slots": [
+    { "name": "image", "kind": "image", "required": true },
+    { "name": "caption", "kind": "value" }
+  ],
+  "layout": {
+    "block": "stack",
+    "children": [
+      { "block": "image", "slot": "image" },
+      { "block": "caption", "slot": "caption" }
+    ]
+  }
+}
