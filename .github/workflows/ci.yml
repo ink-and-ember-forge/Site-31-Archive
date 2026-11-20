@@ -12,8 +12,14 @@ permissions:
   contents: read
 
 jobs:
+  # The author uses Windows, so every check runs there too. A path bug that only breaks on Windows
+  # once reached a release; this catches it on the pull request instead.
   verify:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,5 +31,22 @@ jobs:
       - run: npm test
       # Same build as production, including the Pages sub-path.
       - run: npm run build
+        shell: bash
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
+
+  # Builds the Windows app the way a release does (without making the installer), so a packaging
+  # problem shows up on the pull request rather than when a release is cut.
+  package-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run package -w @archive/author -- --dir
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"

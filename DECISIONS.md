@@ -186,6 +186,17 @@ to, so hotspots and unknown fields in a document file are preserved, ids and fil
 written outside the episode folder, and tests cover these. The author asked to hold the pull request until step 2 was
 finished, so steps 1 and 2 ship together.
 
+## 2026-11-20: Windows build fixed; CI now checks Windows
+
+The v0.1.2 Windows installer job failed: the archive command built its folder paths from a file URL's `.pathname`,
+which on Windows is `/D:/a/...` and became `D:\D:\a\...`. Fixed by using `fileURLToPath`. Also fixed while checking for the
+same class of problem: the live preview's file watcher compared Windows backslash paths with the watcher's forward-slash
+paths, so on Windows saving a file would not have rebuilt the preview; and a wrong Vite log level name. A test now fails if
+any source builds a path from `.pathname`, and the archive command is tested from a different working directory.
+Cause of the miss: everything was tested on Linux only. CI now runs the checks on Windows as well as Linux, and builds the
+Windows app (without the installer) on every pull request, so a Windows-only problem shows up before a release.
+The v0.1.2 release has no Windows installer; the fix ships in the next release.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,

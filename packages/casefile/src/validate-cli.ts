@@ -1,10 +1,11 @@
 // Usage: npm run validate [-- <episode folder or id> ...]
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { formatReport } from './report';
 import { validateEpisodes } from './node';
 
-const here = new URL('.', import.meta.url).pathname;
+const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../../..');
 const episodesDir = resolve(`${root}/episodes`);
 // npm runs workspace scripts from the package folder; INIT_CWD is where the author typed the command.

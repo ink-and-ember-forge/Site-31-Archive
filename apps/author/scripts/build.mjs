@@ -28,7 +28,7 @@ await esbuild({
 cpSync(resolve(app, 'src/preload.cjs'), resolve(dist, 'preload.cjs'));
 
 // The window.
-await vite({ configFile: resolve(app, 'renderer/vite.config.ts'), logLevel: 'warning' });
+await vite({ configFile: resolve(app, 'renderer/vite.config.ts'), logLevel: 'warn' });
 
 // The real viewer, built for the root of its own origin (the website build uses a sub-path instead).
 execFileSync('npm', ['run', 'build', '-w', '@archive/viewer'], {
