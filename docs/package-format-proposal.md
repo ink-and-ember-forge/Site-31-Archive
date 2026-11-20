@@ -1,6 +1,7 @@
-# Case file package format: proposal (v1) — DRAFT, NOT APPROVED
+# Case file package format: v1
 
-Nothing in `apps/` or `packages/casefile` should be built against this until the author approves it.
+**Status: approved by the author on 2026-11-20, with the extensibility amendment in section 4.**
+
 All names below are structure only. No story content is implied.
 
 ## 1. Principles
@@ -17,15 +18,28 @@ All names below are structure only. No story content is implied.
 episodes/<episode-id>/
   case.json              manifest: metadata, document list, layout
   documents/
-    <doc-id>.json        one file per document: type, style, role, hotspots
-    <doc-id>.md          text content, for text-based document types
+    <doc-id>.json        one file per document: template, style, role, hotspots
+    <doc-id>.md          text content for text slots
   registry/
     <entry-id>.json      registry entries this episode contributes
   media/
     images/              photographs, scans, stills
     audio/               archivist voiceover
   ledger.json            ledger references (optional)
+  templates/             optional one-off templates, override the shared theme
+  styles/                optional one-off styles, override the shared theme
 ```
+
+Shared look-and-feel lives once at the repo level (not in packages):
+
+```
+theme/
+  templates/<template-id>.json   layouts composed from blocks
+  styles/<style-id>.json         fonts, paper, ink, wear, colours
+  assets/                        textures, font files
+```
+
+Resolution order for a template or style key: the episode's own folder, then `theme/`, then the viewer's built-in fallback.
 
 Build output (not committed):
 
@@ -51,18 +65,34 @@ dist/archive/
 | `documents` | yes | List of `{ id, layout }` where `layout` is `{ x, y, width, rotation? }` as fractions of the table |
 | `voiceover` | no | `{ file, transcript? }` pointing into `media/audio/` |
 
-## 4. Documents
+## 4. Documents, templates, styles and blocks (extensibility)
+
+"Type" is split into three independent parts so new document kinds are data, not code:
+
+| Part | Answers | Lives in | Needs code? |
+| --- | --- | --- | --- |
+| **Style** | How does it look? Fonts, paper, ink, wear | `theme/styles/` (or episode `styles/`) | No |
+| **Template** | How is it laid out? Arrangement of blocks into regions and named slots | `theme/templates/` (or episode `templates/`) | No |
+| **Block** | A building block: title, paragraph, field row, table, stamp, image, caption, and so on | Built into the viewer | Yes, rare |
 
 `documents/<doc-id>.json`:
 
 | Field | Required | Notes |
 | --- | --- | --- |
-| `type` | yes | e.g. `typed`, `handwritten`, `receipt`, `photograph`. The list is open: unknown types fall back to a plain rendering |
-| `style` | no | Style key into the shared look-and-feel assets (fonts, textures, handwriting). Styles live outside the package so the author can change the look without touching episodes |
+| `template` | yes | Template key, e.g. `typed`, `handwritten`, `receipt`, `photograph`. The list is open |
+| `style` | no | Style key. Defaults to the template's own default style |
 | `role` | yes | `central` or `supporting` (must agree with the manifest) |
-| `content` | by type | `file` for Markdown text, or `image` for photographs |
+| `slots` | by template | Content for the template's named slots: Markdown files, images, field values |
 | `appearsWhen` | no | Supplementary documents revealed by a hotspot rather than placed at the start |
-| `hotspots` | no | See below |
+| `hotspots` | no | See section 5 |
+
+Rules:
+
+- A template is declarative data: a tree of blocks with slot bindings and style tokens. It contains no executable code, and neither does any package.
+- A genuinely new block (for example a cipher grid) is a deliberate, one-off change to the viewer, added once and reusable by every template. Expect a handful over the project's life.
+- Unknown templates, styles or blocks degrade gracefully: unknown template renders the slots as plain text on plain paper, unknown style uses the default, unknown block is skipped with a console warning. The episode still opens.
+- The viewer ships starter templates (`typed`, `handwritten`, `receipt`, `photograph`) and starter styles as clearly labelled placeholders. The author's real ones are new files in `theme/`.
+- `formatVersion` covers templates and styles too, so old episodes keep their look when blocks or tokens evolve.
 
 ## 5. Hotspots and marginalia
 
@@ -96,9 +126,11 @@ Each hotspot has an `id`, an **anchor** (where it sits) and a **target** (what i
 ## 9. Decisions taken on this draft (2026-11-20)
 
 1. **Hotspots in text** are marked spans inside the Markdown; rectangles are used for images and receipts.
-2. **Handwritten documents** are Markdown text rendered with a handwriting font style (a swappable style asset). An image document type remains available for special pages later.
+2. **Handwritten documents** are Markdown text rendered with a handwriting font style (a swappable style asset). An image-based template remains available for special pages later.
 3. **Index** is generated at build from each `case.json`; episodes publish by merging to `main`.
+
+4. **Extensibility:** documents use template + style + blocks rather than a fixed type list (section 4). Templates and styles live in a shared `theme/` with optional per-episode overrides, and new blocks need a deliberate viewer change. Packages never contain executable code.
 
 ## 10. Still to confirm
 
-- Final approval of this proposal as a whole.
+- Nothing outstanding. Next: the schema, the placeholder sample package and the build step.

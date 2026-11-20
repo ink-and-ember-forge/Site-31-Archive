@@ -59,6 +59,14 @@ rejected (rate limits and host lock-in; slow and fragile). Episodes go live when
 redeploys the site. *Reason:* simplest, versioned, and no manual step. Independent publishing to storage
 can be added later without changing the viewer's contract.
 
+## 2026-11-20: Package format v1 approved, with an extensibility amendment
+
+The author approved `docs/package-format-proposal.md`. Because many document styles and layouts are
+expected, "type" is split into **template** (layout), **style** (look) and **block** (building piece).
+Templates and styles are data in a shared `theme/` folder, with optional per-episode overrides taking
+precedence. New blocks need a deliberate viewer change; packages never contain executable code.
+*Reason:* keeps new document kinds as data, keeps one consistent archive look, and keeps packages plain data.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
