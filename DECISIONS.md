@@ -51,6 +51,14 @@ Text hotspots are marked spans in Markdown, rectangles for images and receipts. 
 style applied to Markdown, not scanned images. *Reason:* robust to reflow, text stays editable, and the
 look is data.
 
+## 2026-11-20: Archive index is generated at build; episodes publish via merge to main
+
+`index.json` is never hand-edited: the build generates it from each episode's `case.json`. Static hosting
+cannot list folders, so a generated index is required. Live GitHub API lookup and chained manifests were
+rejected (rate limits and host lock-in; slow and fragile). Episodes go live when merged to `main`, which
+redeploys the site. *Reason:* simplest, versioned, and no manual step. Independent publishing to storage
+can be added later without changing the viewer's contract.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
