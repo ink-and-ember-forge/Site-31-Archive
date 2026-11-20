@@ -1,0 +1,13 @@
+{
+  "template": "receipt",
+  "role": "supporting",
+  "slots": {
+    "store": { "kind": "value", "value": "PLACEHOLDER STORE" },
+    "items": { "kind": "markdown", "text": "| Item | Price |\n| --- | --- |\n| PLACEHOLDER ITEM | 0.00 |" },
+    "total": { "kind": "value", "value": "0.00" }
+  },
+  "hotspots": [
+    { "id": "receipt-note", "anchor": { "type": "rect", "x": 0.1, "y": 0.1, "width": 0.5, "height": 0.1 },
+      "target": { "type": "lightbox", "text": "PLACEHOLDER receipt annotation." } }
+  ]
+}

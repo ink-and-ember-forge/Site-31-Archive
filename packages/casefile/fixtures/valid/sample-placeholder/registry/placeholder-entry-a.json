@@ -1,0 +1,8 @@
+{
+  "id": "placeholder-entry-a",
+  "kind": "record",
+  "title": "PLACEHOLDER ENTRY A",
+  "fields": [{ "label": "PLACEHOLDER FIELD", "value": "PLACEHOLDER VALUE" }],
+  "body": "PLACEHOLDER registry text.",
+  "references": ["sample-placeholder/placeholder-entry-b", "placeholder-other-episode/placeholder-entry-z"]
+}

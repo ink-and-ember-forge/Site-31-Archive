@@ -1,0 +1,16 @@
+{
+  "template": "typed",
+  "role": "central",
+  "slots": {
+    "title": { "kind": "value", "value": "PLACEHOLDER STATEMENT" },
+    "body": { "kind": "markdown", "file": "documents/statement.md" }
+  },
+  "hotspots": [
+    { "id": "note-1", "anchor": { "type": "text", "slot": "body" },
+      "target": { "type": "lightbox", "title": "PLACEHOLDER note", "text": "PLACEHOLDER marginal note text." } },
+    { "id": "ref-1", "anchor": { "type": "text", "slot": "body" },
+      "target": { "type": "registry", "entry": "sample-placeholder/placeholder-entry-a" } },
+    { "id": "ticket-1", "anchor": { "type": "text", "slot": "body" },
+      "target": { "type": "document", "document": "ticket" } }
+  ]
+}

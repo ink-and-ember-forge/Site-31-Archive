@@ -67,8 +67,14 @@ Templates and styles are data in a shared `theme/` folder, with optional per-epi
 precedence. New blocks need a deliberate viewer change; packages never contain executable code.
 *Reason:* keeps new document kinds as data, keeps one consistent archive look, and keeps packages plain data.
 
+## 2026-11-20: Package format v1 implemented
+
+Schemas, validator, loader and archive build are in `packages/casefile`, with tests. Refinements made
+while implementing, all recorded in the spec: documents hidden at the start use `hidden: true` in the
+manifest (replacing the unused `appearsWhen`); unknown extra fields are ignored so additive changes are
+non-breaking; unsafe paths are treated as missing. The sample episode and starter theme are placeholders.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
-document types after the witness statement, house style. The **case file package format**
-is the next task and needs the author's approval before either tool is built against it.
+document types after the witness statement, house style. Next: the minimal viewer (build step 3).

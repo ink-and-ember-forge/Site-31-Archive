@@ -1,0 +1,2 @@
+{ "id": "photo-print", "name": "Photo print (PLACEHOLDER starter)", "placeholder": true,
+  "tokens": { "fontFamily": "sans-serif", "fontSize": "11px", "ink": "#111111", "paper": "#e9e6df" } }

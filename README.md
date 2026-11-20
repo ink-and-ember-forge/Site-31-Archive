@@ -5,8 +5,8 @@ folder the reader opens onto a virtual work table of documents they can move, zo
 interrogate. See [`docs/design-document.md`](docs/design-document.md) for the vision and
 [`CLAUDE.md`](CLAUDE.md) for the build instructions.
 
-> **Status:** repository scaffold only. The viewer and authoring tool are placeholder shells.
-> The case file package format is not yet agreed.
+> **Status:** the package format (v1) is agreed and implemented, with validation and an automatic archive
+> build. The viewer and authoring tool are still placeholder shells.
 
 ## Layout
 
@@ -14,7 +14,7 @@ interrogate. See [`docs/design-document.md`](docs/design-document.md) for the vi
 | --- | --- |
 | `apps/viewer` | The reader's viewer: Vite + TypeScript + Svelte, deployed to GitHub Pages |
 | `apps/author` | The authoring tool: Electron desktop app |
-| `packages/casefile` | The case file package contract (format, types, validator), shared by both. Empty until the format is approved |
+| `packages/casefile` | The case file package contract (format, types, validator), shared by both. The package contract: schemas, validator, loader and archive build |
 | `episodes/` | Case file packages, one folder per episode |
 | `docs/` | Design document and package format spec |
 | `theme/` | Shared templates, styles and assets (look and feel as data) |
@@ -59,8 +59,23 @@ Use **squash merge** so the PR title becomes the commit message.
 
 ## Add an episode
 
-Add one package folder under `episodes/` and merge. No code change. The package format
-is still to be agreed; this section will be filled in once it is.
+1. Create `episodes/<episode-id>/` (lowercase, hyphens; it must match `id` in `case.json`).
+2. Add `case.json`, `documents/`, and any `registry/` and `media/` files. The format is in
+   [`docs/package-format-proposal.md`](docs/package-format-proposal.md), and a complete example is
+   [`packages/casefile/fixtures/valid/sample-placeholder`](packages/casefile/fixtures/valid/sample-placeholder).
+3. Merge. The build validates the folder, zips it to a `.casefile`, regenerates the archive index and
+   redeploys. There is no index to edit and no code to change.
+
+An invalid episode fails the build with a message naming the file. Content problems that don't stop an
+episode opening (a missing image, a bad hotspot) are printed as warnings and degraded gracefully.
+
+New document looks and layouts are data: add templates and styles to `theme/` (see `theme/README.md`).
+
+Preview the archive build locally with the placeholder sample included:
+
+```bash
+npm run archive:samples -w @archive/casefile
+```
 
 ## One-time GitHub settings (cannot be set from code)
 

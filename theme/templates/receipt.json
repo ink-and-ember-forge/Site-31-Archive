@@ -1,0 +1,20 @@
+{
+  "id": "receipt",
+  "name": "Receipt (PLACEHOLDER starter)",
+  "placeholder": true,
+  "defaultStyle": "receipt-thermal",
+  "aspect": 0.45,
+  "slots": [
+    { "name": "store", "kind": "value" },
+    { "name": "items", "kind": "markdown", "required": true },
+    { "name": "total", "kind": "value" }
+  ],
+  "layout": {
+    "block": "stack",
+    "children": [
+      { "block": "title", "slot": "store" },
+      { "block": "table", "slot": "items" },
+      { "block": "field-row", "slot": "total", "props": { "label": "TOTAL" } }
+    ]
+  }
+}

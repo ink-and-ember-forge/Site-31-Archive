@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "template.schema.json",
+  "title": "Document template, format v1",
+  "type": "object",
+  "required": ["id", "slots", "layout"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "name": { "type": "string" },
+    "placeholder": { "type": "boolean" },
+    "defaultStyle": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "aspect": { "type": "number", "exclusiveMinimum": 0 },
+    "slots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "kind"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["markdown", "image", "value"] },
+          "required": { "type": "boolean" }
+        }
+      }
+    },
+    "layout": { "$ref": "#/$defs/block" }
+  },
+  "$defs": {
+    "block": {
+      "type": "object",
+      "required": ["block"],
+      "properties": {
+        "block": { "type": "string", "minLength": 1 },
+        "slot": { "type": "string" },
+        "props": { "type": "object" },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/block" } }
+      }
+    }
+  }
+}

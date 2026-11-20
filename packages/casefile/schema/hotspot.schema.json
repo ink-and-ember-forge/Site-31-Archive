@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hotspot.schema.json",
+  "title": "Hotspot or marginalia, format v1",
+  "type": "object",
+  "required": ["id", "anchor", "target"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "label": { "type": "string" },
+    "anchor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "slot"],
+          "properties": { "type": { "const": "text" }, "slot": { "type": "string" } }
+        },
+        {
+          "type": "object",
+          "required": ["type", "x", "y", "width", "height"],
+          "properties": {
+            "type": { "const": "rect" },
+            "x": { "type": "number", "minimum": 0, "maximum": 1 },
+            "y": { "type": "number", "minimum": 0, "maximum": 1 },
+            "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+            "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+          }
+        }
+      ]
+    },
+    "target": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "lightbox" },
+            "title": { "type": "string" },
+            "text": { "type": "string" },
+            "file": { "type": "string" }
+          },
+          "anyOf": [{ "required": ["text"] }, { "required": ["file"] }]
+        },
+        {
+          "type": "object",
+          "required": ["type", "document"],
+          "properties": { "type": { "const": "document" }, "document": { "type": "string" } }
+        },
+        {
+          "type": "object",
+          "required": ["type", "entry"],
+          "properties": {
+            "type": { "const": "registry" },
+            "entry": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*/[a-z0-9]+(-[a-z0-9]+)*$" }
+          }
+        }
+      ]
+    }
+  }
+}

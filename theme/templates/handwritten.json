@@ -1,0 +1,9 @@
+{
+  "id": "handwritten",
+  "name": "Handwritten note (PLACEHOLDER starter)",
+  "placeholder": true,
+  "defaultStyle": "handwritten-ink",
+  "aspect": 0.8,
+  "slots": [{ "name": "body", "kind": "markdown", "required": true }],
+  "layout": { "block": "stack", "children": [{ "block": "paragraph", "slot": "body" }] }
+}

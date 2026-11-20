@@ -1,0 +1,5 @@
+{
+  "template": "handwritten",
+  "role": "supporting",
+  "slots": { "body": { "kind": "markdown", "text": "PLACEHOLDER handwritten supplementary document." } }
+}

@@ -1,0 +1,8 @@
+{
+  "formatVersion": 1,
+  "id": "minimal",
+  "title": "PLACEHOLDER: Minimal Case File",
+  "submissionDate": "2000-01-02",
+  "centralDocument": "main",
+  "documents": [{ "id": "main", "layout": { "x": 0.25, "y": 0.1, "width": 0.5 } }]
+}

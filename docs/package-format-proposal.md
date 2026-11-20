@@ -62,7 +62,7 @@ dist/archive/
 | `folderLabel` | no | Text or style key for the folder face |
 | `order` | no | Position in the archive; falls back to date |
 | `centralDocument` | yes | `doc-id` of the main document |
-| `documents` | yes | List of `{ id, layout }` where `layout` is `{ x, y, width, rotation? }` as fractions of the table |
+| `documents` | yes | List of `{ id, layout, hidden? }`. `layout` is `{ x, y, width, rotation? }` as fractions of the table (rotation in degrees). A `hidden` document is not placed at the start; a hotspot with a `document` target reveals it |
 | `voiceover` | no | `{ file, transcript? }` pointing into `media/audio/` |
 
 ## 4. Documents, templates, styles and blocks (extensibility)
@@ -82,8 +82,7 @@ dist/archive/
 | `template` | yes | Template key, e.g. `typed`, `handwritten`, `receipt`, `photograph`. The list is open |
 | `style` | no | Style key. Defaults to the template's own default style |
 | `role` | yes | `central` or `supporting` (must agree with the manifest) |
-| `slots` | by template | Content for the template's named slots: Markdown files, images, field values |
-| `appearsWhen` | no | Supplementary documents revealed by a hotspot rather than placed at the start |
+| `slots` | by template | Content for the template's named slots, each `{ kind: "markdown", file or text }`, `{ kind: "image", file, alt? }` or `{ kind: "value", value }` |
 | `hotspots` | no | See section 5 |
 
 Rules:
@@ -98,9 +97,9 @@ Rules:
 
 Each hotspot has an `id`, an **anchor** (where it sits) and a **target** (what it opens):
 
-- **Anchor:** either a text anchor (a marked span in the Markdown, so it survives reflow) or a rectangle in fractions of the document (for images and receipts).
+- **Anchor:** either `{ type: "text", slot }` (a marked span `[the words]{#hotspot-id}` in that slot's Markdown, where the id matches the hotspot's `id`, so it survives reflow) or `{ type: "rect", x, y, width, height }` in fractions of the document (for images and receipts).
 - **Target** is one of:
-  - `lightbox`: marginal note content shown in an overlay
+  - `lightbox`: marginal note content shown in an overlay (`text` inline, or `file` inside the package, plus optional `title`)
   - `document`: reveals a supplementary document by id
   - `registry`: opens a registry entry by global id
 
@@ -119,9 +118,18 @@ Each hotspot has an `id`, an **anchor** (where it sits) and a **target** (what i
 
 ## 8. Tolerance and validation
 
-- A JSON Schema in `packages/casefile` is the machine-readable contract; both tools use the same validator.
+- JSON Schemas in `packages/casefile/schema/` are the machine-readable contract; the viewer, the authoring tool and the build all use the same validator (`loadCasefile`).
+- **Additive changes are non-breaking:** unknown extra fields are ignored, so new optional fields can be added without a new `formatVersion`. Removing or changing the meaning of a field is a breaking change and bumps the version.
 - Missing optional files or fields never block opening. Malformed hotspots are dropped with a console warning; a malformed manifest fails that one episode only, and the wall still loads.
 - Tests: a sample package labelled placeholder, plus malformed and partial fixtures.
+
+## 8a. Implementation notes (added when the schema was written)
+
+- **Hidden documents never opened by a hotspot** produce a warning, since the reader could never see them.
+- **Paths inside a package** must be relative and may not contain `..`; unsafe paths are treated as missing.
+- **Registry hotspots** are checked only against this episode's own entries; references to other episodes are never an error.
+- **Build:** `npm run archive` (run automatically by the viewer's build) fails on an invalid episode, folder/id mismatch or broken theme, and prints warnings for degraded content.
+- **Deterministic zips:** the same folder always produces the same `.casefile` bytes.
 
 ## 9. Decisions taken on this draft (2026-11-20)
 

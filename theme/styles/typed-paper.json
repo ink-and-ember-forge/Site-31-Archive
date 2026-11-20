@@ -1,0 +1,2 @@
+{ "id": "typed-paper", "name": "Typed paper (PLACEHOLDER starter)", "placeholder": true,
+  "tokens": { "fontFamily": "'Courier New', monospace", "fontSize": "15px", "ink": "#222222", "paper": "#f4efe1" } }

@@ -1,0 +1,8 @@
+{
+  "template": "photograph",
+  "role": "supporting",
+  "slots": {
+    "image": { "kind": "image", "file": "media/images/placeholder-still.svg", "alt": "PLACEHOLDER image" },
+    "caption": { "kind": "value", "value": "PLACEHOLDER CAPTION" }
+  }
+}
