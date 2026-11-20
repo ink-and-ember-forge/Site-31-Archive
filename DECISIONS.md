@@ -155,6 +155,14 @@ felt while writing, and a visual editor can quietly consume the time meant for w
 next, built around what the author finds painful. Not yet in the viewer: voiceover playback, ledger use, custom font
 files, reader notes (all listed in the guide).
 
+## 2026-11-20: Authoring tool comes before writing episode one
+
+Offered the choice of writing in conversation, using the live preview on their own computer, editing on GitHub's
+website, or having the authoring tool first, the author chose the **authoring tool first**: they do not want to edit
+files by hand. The live preview, validate command and writing guide stay as the fallback and as the engine under
+the tool. Scope still to agree before building (see the proposal): how editing works, and how a finished episode
+reaches the repo. *Reason:* author preference; the design warns the editor can consume writing time, so v0 stays small.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
