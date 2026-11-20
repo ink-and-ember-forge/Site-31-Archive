@@ -37,6 +37,14 @@ PR title becomes the commit message.
 
 `Archive Project Design Document.md` is now `docs/design-document.md` (tidier path, no spaces).
 
+## 2026-11-20: Package format leans toward single-file portability
+
+Direction for the format proposal: one portable file per episode (zip-style, easy to share and
+upload), with the unpacked folder as a secondary form. *Reason:* the author prioritised
+portability over hand-editability. Trade-off to address in the proposal: hand-editing now means
+unpacking, so the authoring tool or a small script must handle pack and unpack. Not yet
+approved: the full format proposal is still to come.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
