@@ -8,3 +8,5 @@ export * from './blocks';
 export { extractSpanIds } from './markdown';
 export { UPGRADES, upgradeManifest } from './version';
 export * from './validate';
+export * from './report';
+export * from './authoring';

@@ -1,0 +1,24 @@
+:root {
+  --bg: #2b221b;
+  --panel: #231c16;
+  --line: #4a3d31;
+  --ink: #e6dcc6;
+  --muted: #a89c85;
+  --accent: #d6a21a;
+  --error: #ff8a7a;
+  --warn: #f0c36a;
+}
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 'Segoe UI', system-ui, sans-serif; }
+button { font: inherit; color: inherit; cursor: pointer; background: #3a2f25; border: 1px solid var(--line); border-radius: 4px; padding: 0.4rem 0.8rem; }
+button:hover:not(:disabled) { background: #4a3d31; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #1d1608; font-weight: 600; }
+button.primary:hover:not(:disabled) { background: #e8b52c; }
+button:disabled { opacity: 0.5; cursor: default; }
+:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 1px; }
+input { font: inherit; color: inherit; background: #1a1510; border: 1px solid var(--line); border-radius: 4px; padding: 0.4rem 0.5rem; width: 100%; }
+label { display: block; margin-bottom: 0.9rem; }
+label > span { display: block; margin-bottom: 0.25rem; color: var(--muted); font-size: 0.85rem; }
+
+code { background: #1a1510; padding: 0.05rem 0.3rem; border-radius: 3px; }

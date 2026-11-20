@@ -4,6 +4,7 @@
   import type { LoadedDoc } from './lib/episode';
   import type { NoteVariant } from '@archive/casefile';
   import type { MdBlock } from './lib/markdown';
+  import { instant, notifyAuthor } from './lib/author';
   import { placeNotes } from './lib/notes';
   import { STRINGS } from './lib/strings';
   import type { RegistryResolver } from './lib/registry';
@@ -32,6 +33,9 @@
     fromTop: number;
   }
 
+  // With animation off (reduced motion, or the authoring tool's preview) documents start in place, not tucked in the folder.
+  const reduced = instant || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
   const all = untrack(() => docs);
   const byId = Object.fromEntries(all.map((d) => [d.id, d]));
   const opening = all.filter((d) => !d.hidden); // these come out of the folder in turn
@@ -40,7 +44,7 @@
     Object.fromEntries(
       all.map((d, i) => [
         d.id,
-        { x: d.layout.x, y: d.layout.y, zoom: 1, z: i + 1, entered: false, revealed: !d.hidden, fromLeft: 50, fromTop: 0 },
+        { x: d.layout.x, y: d.layout.y, zoom: 1, z: i + 1, entered: reduced && !d.hidden, revealed: !d.hidden, fromLeft: 50, fromTop: 0 },
       ]),
     ),
   );
@@ -49,8 +53,8 @@
   let th = $state(700);
   let focused = $state<string | null>(null);
   let folderOpen = $state(false);
-  let folderGone = $state(false);
-  let settled = $state(false);
+  let folderGone = $state(reduced);
+  let settled = $state(reduced);
   let topZ = all.length + 1;
   let dragging = $state<string | null>(null);
   let drag: { id: string; el: HTMLElement; pid: number; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null = null;
@@ -62,7 +66,6 @@
   let tableEl: HTMLDivElement;
   const openFor = (docId: string) => notes.filter((n) => n.docId === docId).map((n) => n.hotspotId);
 
-  const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   onMount(() => {
     const timers: number[] = [];
@@ -95,6 +98,7 @@
   function down(e: PointerEvent, id: string) {
     if (focused && focused !== id) return;
     states[id].z = ++topZ;
+    notifyAuthor({ type: 'select', doc: id });
     drag = { id, el: e.currentTarget as HTMLElement, pid: e.pointerId, sx: e.clientX, sy: e.clientY, ox: states[id].x, oy: states[id].y, moved: false };
   }
   function move(e: PointerEvent) {
@@ -113,6 +117,8 @@
     }
   }
   function up() {
+    // In the authoring tool's preview, tell it where the document was dropped so the position is saved.
+    if (drag?.moved) notifyAuthor({ type: 'layout', doc: drag.id, x: states[drag.id].x, y: states[drag.id].y });
     drag = null;
     dragging = null;
   }

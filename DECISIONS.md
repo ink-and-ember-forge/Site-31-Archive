@@ -143,7 +143,50 @@ The Linux AppImage build was verified end to end in the sandbox; the Mac and Win
 there. **v0.1.0 has no installers attached**; the fix ships in the next release (0.1.1).
 Note for later: when upgrading Electron, update the pinned version by hand.
 
+## 2026-11-20: Next step is the writing loop first, then the authoring tool (A, then B)
+
+Before building the Electron authoring tool, give the author a way to write episode one now: a plain-English
+guide (`docs/writing-an-episode.md`), `npm run validate` (clear per-file messages with hints), and a live preview.
+The preview is built into the viewer's dev server: `npm run dev:viewer` builds the archive, rebuilds when anything
+in `episodes/` or `theme/` is saved, refreshes the browser, and shows mistakes as an overlay. It uses the real viewer,
+so it is exactly what the reader sees. The archive build now overwrites its output in place instead of deleting the
+folder (which broke the dev server's file watching). *Reason:* the design says to grow the editor from friction actually
+felt while writing, and a visual editor can quietly consume the time meant for writing. The Electron authoring tool is
+next, built around what the author finds painful. Not yet in the viewer: voiceover playback, ledger use, custom font
+files, reader notes (all listed in the guide).
+
+## 2026-11-20: Authoring tool comes before writing episode one
+
+Offered the choice of writing in conversation, using the live preview on their own computer, editing on GitHub's
+website, or having the authoring tool first, the author chose the **authoring tool first**: they do not want to edit
+files by hand. The live preview, validate command and writing guide stay as the fallback and as the engine under
+the tool. Scope still to agree before building (see the proposal): how editing works, and how a finished episode
+reaches the repo. *Reason:* author preference; the design warns the editor can consume writing time, so v0 stays small.
+
+## 2026-11-20: Authoring tool v0 approved; step 1 built
+
+The author approved `docs/authoring-tool-v0.md` (forms beside the real viewer; the tool saves to a folder that is
+uploaded on GitHub; no Publish button in v0). The author uses Windows. Step 1 is built: an Electron app with a Svelte
+window, an episode form that autosaves, a problems list, and the real viewer bundled and shown in a sandboxed frame
+fed by the same archive build the website uses. Design choices: the window and the preview are separate origins
+(`app://author`, `app://viewer`) so the preview cannot reach the window; the window has no Node access and only a
+narrow set of actions; all file work is in the main process and is tested without Electron; helpers for ids, starter
+files and saving live in `packages/casefile` so the format has one owner. The app bundles the viewer and theme as of
+its release, so its preview matches the app's version, not necessarily the live site. The packaged Linux build was run
+end to end in the sandbox; Windows and macOS builds are produced by the release workflow.
+
+## 2026-11-20: Authoring tool step 2 (documents) built
+
+Documents can be added by type and name, filled through forms generated from their template (a value is a box, text is a
+text area, an image is a file chooser that copies it into the episode with a description), placed by dragging on the
+preview or by number, made the main document, hidden, or removed. The author chose a plain text box for document text
+(not typing onto the page itself). The preview opens documents in place instead of sliding them out of the folder, since
+it reloads on each edit; this also applies when the reader has reduced motion on. Every edit changes only what it means
+to, so hotspots and unknown fields in a document file are preserved, ids and file paths are validated so nothing can be
+written outside the episode folder, and tests cover these. The author asked to hold the pull request until step 2 was
+finished, so steps 1 and 2 ship together.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
-document types after the witness statement, house style. Next: the author writes episode one with the tools (build step 5); reader notes, voiceover and ledger tooling follow.
+document types after the witness statement, house style. Next: authoring tool step 3 (hotspots), then 4 and 5.
