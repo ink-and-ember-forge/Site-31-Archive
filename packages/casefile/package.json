@@ -25,6 +25,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./node": "./src/node.ts",
-    "./schema/*": "./schema/*"
+    "./schema/*": "./schema/*",
+    "./authoring": "./src/authoring.ts"
   }
 }

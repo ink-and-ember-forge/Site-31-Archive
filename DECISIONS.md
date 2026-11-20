@@ -163,7 +163,19 @@ files by hand. The live preview, validate command and writing guide stay as the 
 the tool. Scope still to agree before building (see the proposal): how editing works, and how a finished episode
 reaches the repo. *Reason:* author preference; the design warns the editor can consume writing time, so v0 stays small.
 
+## 2026-11-20: Authoring tool v0 approved; step 1 built
+
+The author approved `docs/authoring-tool-v0.md` (forms beside the real viewer; the tool saves to a folder that is
+uploaded on GitHub; no Publish button in v0). The author uses Windows. Step 1 is built: an Electron app with a Svelte
+window, an episode form that autosaves, a problems list, and the real viewer bundled and shown in a sandboxed frame
+fed by the same archive build the website uses. Design choices: the window and the preview are separate origins
+(`app://author`, `app://viewer`) so the preview cannot reach the window; the window has no Node access and only a
+narrow set of actions; all file work is in the main process and is tested without Electron; helpers for ids, starter
+files and saving live in `packages/casefile` so the format has one owner. The app bundles the viewer and theme as of
+its release, so its preview matches the app's version, not necessarily the live site. The packaged Linux build was run
+end to end in the sandbox; Windows and macOS builds are produced by the release workflow.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
-document types after the witness statement, house style. Next: the author writes episode one (build step 5), then the Electron authoring tool v0 around the friction found.
+document types after the witness statement, house style. Next: authoring tool step 2 (documents), then 3 to 5.

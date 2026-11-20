@@ -62,7 +62,9 @@
   let tableEl: HTMLDivElement;
   const openFor = (docId: string) => notes.filter((n) => n.docId === docId).map((n) => n.hotspotId);
 
-  const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // The authoring tool's preview reloads on every edit, so it skips the opening animation (`?instant`).
+  const instant = typeof location !== 'undefined' && new URLSearchParams(location.search).has('instant');
+  const reduced = instant || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   onMount(() => {
     const timers: number[] = [];

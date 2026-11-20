@@ -2,10 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-src app://viewer"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Archive Author</title>
   </head>
   <body>
-    <h1>Archive Author</h1>
-    <p>Placeholder: the authoring tool is not built yet.</p>
+    <div id="app"></div>
+    <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

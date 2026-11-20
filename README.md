@@ -6,14 +6,14 @@ interrogate. See [`docs/design-document.md`](docs/design-document.md) for the vi
 [`CLAUDE.md`](CLAUDE.md) for the build instructions.
 
 > **Status:** the package format (v1) is agreed and implemented, with validation and an automatic archive
-> build. The viewer and authoring tool are still placeholder shells.
+> build. The authoring tool is being built in steps (step 1 of 5 is in; see `docs/authoring-tool-v0.md`).
 
 ## Layout
 
 | Path | What it is |
 | --- | --- |
 | `apps/viewer` | The reader's viewer: Vite + TypeScript + Svelte, deployed to GitHub Pages |
-| `apps/author` | The authoring tool: Electron desktop app |
+| `apps/author` | The authoring tool: Electron desktop app. Installers are attached to each GitHub Release |
 | `packages/casefile` | The case file package contract (format, types, validator), shared by both. The package contract: schemas, validator, loader and archive build |
 | `episodes/` | Case file packages, one folder per episode |
 | `docs/` | Design document, package format spec, and [how to write an episode](docs/writing-an-episode.md) |
