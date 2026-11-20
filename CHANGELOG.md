@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.3](https://github.com/ink-and-ember-forge/Site-31-Archive/compare/site-31-archive-v0.1.2...site-31-archive-v0.1.3) (2026-11-20)
+
+
+### Bug Fixes
+
+* make the archive build work on Windows, and test on Windows in CI ([1e89e88](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/1e89e884cb679f6a03d26e34c61652693c56a26b))
+* make the archive build work on Windows, and test on Windows in CI ([4d4aba3](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/4d4aba3adbf07255e6da4f25f1a7687cab6a0287))
+* read an episode folder name from paths that mix Windows separators ([1df1225](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/1df1225e89316185fa530055ecaed8fba5d54613))
+
 ## [0.1.2](https://github.com/ink-and-ember-forge/Site-31-Archive/compare/site-31-archive-v0.1.1...site-31-archive-v0.1.2) (2026-11-20)
 
 
