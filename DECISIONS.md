@@ -115,6 +115,16 @@ if there is no room, and stack rather than overlap. The registry stays a full-at
 the archive answering back. *Reason:* the author wanted marginalia to feel lighter; mockup provided.
 Callout styling is placeholder and should move into the theme later.
 
+## 2026-11-20: Two marginal-note variants, replacing the single callout
+
+The first callout (card with a solid wedge) was judged bulky. Marginal notes now have an optional
+`variant` on the lightbox hotspot target: **formal** (default; slim dark glass card, typed voice, straight
+dotted string with a dot at each end) and **note** (handwritten straight onto the table with no box, with a
+curved pen line and arrow). Connectors have a light core with a dark glow so they read over both the cream
+paper and the dark table. This is an additive optional field, so the format version stays at 1; the spec and
+schema are updated. Colours and the handwriting font stack are placeholders in the viewer and are to move
+into the shared theme (a real handwriting font is a theme asset). *Reason:* author feedback with design mocks.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,

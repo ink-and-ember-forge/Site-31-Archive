@@ -9,6 +9,7 @@ import {
   type DocumentDef,
   type Issue,
   type Layout,
+  type NoteVariant,
   type PackageSource,
   type RegistryEntry,
   type Style,
@@ -25,6 +26,7 @@ export type Content =
   | { kind: 'value'; value: string };
 
 export interface LightboxContent {
+  variant: NoteVariant;
   title?: string;
   blocks: MdBlock[];
 }
@@ -105,7 +107,7 @@ async function readLightboxes(source: PackageSource, def: DocumentDef): Promise<
   for (const h of def.hotspots) {
     if (h.target.type !== 'lightbox') continue;
     const text = h.target.text ?? (h.target.file ? await source.readText(h.target.file) : undefined) ?? '';
-    out[h.id] = { title: h.target.title, blocks: parseMarkdown(text) };
+    out[h.id] = { variant: h.target.variant ?? 'formal', title: h.target.title, blocks: parseMarkdown(text) };
   }
   return out;
 }

@@ -133,6 +133,20 @@ describe('partial packages degrade gracefully', () => {
     expect(messages(r.warnings)).toContain('hidden document "ticket" is never opened');
   });
 
+  it('accepts note variants and drops a hotspot with an unknown variant', async () => {
+    const ok = await loadCasefile(fsSource(samplePath));
+    if (!ok.ok) throw new Error('should load');
+    const variants = ok.casefile.documents.flatMap((d) => d.hotspots).flatMap((h) => (h.target.type === 'lightbox' ? [h.target.variant] : []));
+    expect(variants.sort()).toEqual(['formal', 'note']);
+
+    const doc = await sampleJson<any>('documents/statement.json');
+    doc.hotspots[0].target.variant = 'sparkly';
+    const r = await loadCasefile(await sampleWith({ 'documents/statement.json': doc }));
+    if (!r.ok) throw new Error('should load');
+    expect(r.casefile.documents[0].hotspots.map((h) => h.id)).toEqual(['ref-1', 'ticket-1']);
+    expect(messages(r.warnings)).toContain('hotspot dropped');
+  });
+
   it('drops duplicate hotspot ids', async () => {
     const doc = await sampleJson<any>('documents/statement.json');
     doc.hotspots.push(doc.hotspots[0]);

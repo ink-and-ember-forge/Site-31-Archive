@@ -49,6 +49,13 @@ describe('placeNotes', () => {
     expect(NOTE_WIDTH).toBe(260);
   });
 
+  it('honours a per-note width and meets the callout edge at a single point', () => {
+    const [p] = placeNotes([note('a', { width: 200 })], table);
+    expect(p.width).toBe(200);
+    expect(p.by).toBeGreaterThanOrEqual(p.y);
+    expect(p.by).toBeLessThanOrEqual(p.y + p.height);
+  });
+
   it('gives the pointer a base on the callout edge', () => {
     const [p] = placeNotes([note('a')], table);
     expect(p.by2).toBeGreaterThan(p.by1);

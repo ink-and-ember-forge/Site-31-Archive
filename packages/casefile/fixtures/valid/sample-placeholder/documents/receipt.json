@@ -8,6 +8,6 @@
   },
   "hotspots": [
     { "id": "receipt-note", "anchor": { "type": "rect", "x": 0.1, "y": 0.1, "width": 0.5, "height": 0.1 },
-      "target": { "type": "lightbox", "text": "PLACEHOLDER receipt annotation." } }
+      "target": { "type": "lightbox", "variant": "note", "text": "PLACEHOLDER handwritten note." } }
   ]
 }

@@ -2,6 +2,7 @@
   import { onMount, tick, untrack } from 'svelte';
   import type { Hotspot } from '@archive/casefile';
   import type { LoadedDoc } from './lib/episode';
+  import type { NoteVariant } from '@archive/casefile';
   import type { MdBlock } from './lib/markdown';
   import { placeNotes } from './lib/notes';
   import { STRINGS } from './lib/strings';
@@ -56,7 +57,7 @@
 
   // The registry is a full-attention overlay; marginal notes are small callouts that stay on the table.
   let registryId = $state<string | null>(null);
-  interface Note { key: string; docId: string; hotspotId: string; title?: string; blocks: MdBlock[] }
+  interface Note { key: string; docId: string; hotspotId: string; variant: NoteVariant; title?: string; blocks: MdBlock[] }
   let notes = $state<Note[]>([]);
   let tableEl: HTMLDivElement;
   const openFor = (docId: string) => notes.filter((n) => n.docId === docId).map((n) => n.hotspotId);
@@ -156,7 +157,7 @@
       return;
     }
     const content = byId[docId].lightboxes[hotspotId];
-    if (content) notes = [...notes, { key, docId, hotspotId, title: content.title, blocks: content.blocks }];
+    if (content) notes = [...notes, { key, docId, hotspotId, variant: content.variant, title: content.title, blocks: content.blocks }];
   }
 
   // While notes are open, keep each one beside its document and pointing at its words,
@@ -173,12 +174,31 @@
     return () => cancelAnimationFrame(frame);
   });
 
+  /** Formal notes get a straight dotted string with a dot at each end; handwritten notes a curved pen line with an arrow. */
+  function drawLeader(g: SVGGElement, variant: NoteVariant, pl: ReturnType<typeof placeNotes>[number]) {
+    const line = g.querySelector('.line')!;
+    if (variant === 'formal') {
+      line.setAttribute('d', `M ${pl.ax} ${pl.ay} L ${pl.bx} ${pl.by}`);
+      for (const [cls, x, y] of [['.dot-a', pl.ax, pl.ay], ['.dot-b', pl.bx, pl.by]] as const) {
+        const dot = g.querySelector(cls)!;
+        dot.setAttribute('cx', String(x));
+        dot.setAttribute('cy', String(y));
+      }
+    } else {
+      const dir = pl.bx >= pl.ax ? 1 : -1;
+      const ex = pl.bx - dir * 6; // stop just short of the handwriting
+      const reach = Math.max(30, Math.abs(ex - pl.ax) / 2);
+      line.setAttribute('d', `M ${pl.ax} ${pl.ay} C ${pl.ax + dir * reach} ${pl.ay - 6}, ${ex - dir * reach} ${pl.by + 6}, ${ex} ${pl.by}`);
+      g.querySelector('.head')!.setAttribute('d', `M ${ex - dir * 7} ${pl.by - 4} L ${ex} ${pl.by} L ${ex - dir * 7} ${pl.by + 4}`);
+    }
+  }
+
   function layoutNotes() {
     if (!tableEl) return;
     const t = tableEl.getBoundingClientRect();
     const parts = notes.flatMap((n) => {
       const el = tableEl.querySelector<HTMLElement>(`[data-note="${n.key}"]`);
-      const leader = tableEl.querySelector<SVGPolygonElement>(`[data-leader="${n.key}"]`);
+      const leader = tableEl.querySelector<SVGGElement>(`[data-leader="${n.key}"]`);
       const docEl = tableEl.querySelector<HTMLElement>(`[data-doc="${n.docId}"]`);
       const anchor = docEl?.querySelector<HTMLElement>(`[data-hs="${n.hotspotId}"]`);
       const rects = anchor?.getClientRects();
@@ -191,6 +211,7 @@
         anchor: { left: first.left - t.left, right: last.right - t.left, y: last.top + last.height / 2 - t.top },
         doc: { left: d.left - t.left, right: d.right - t.left },
         height: el.offsetHeight,
+        width: n.variant === 'note' ? 210 : 200,
       } }];
     });
     const placed = placeNotes(parts.map((p) => p.input), { width: t.width, height: t.height });
@@ -198,8 +219,8 @@
       const pl = placed[i];
       p.el.style.visibility = pl.hidden ? 'hidden' : 'visible';
       p.el.style.width = `${pl.width}px`;
-      p.el.style.transform = `translate(${pl.x}px, ${pl.y}px)`;
-      p.leader.setAttribute('points', `${pl.ax},${pl.ay} ${pl.bx},${pl.by1} ${pl.bx},${pl.by2}`);
+      p.el.style.transform = `translate(${pl.x}px, ${pl.y}px)` + (p.n.variant === 'note' ? ' rotate(-1.2deg)' : '');
+      drawLeader(p.leader, p.n.variant, pl);
       p.leader.style.visibility = pl.hidden ? 'hidden' : 'visible';
     });
   }
@@ -270,22 +291,25 @@
     {/each}
 
     <svg class="leaders" aria-hidden="true">
-      {#each notes as n (n.key)}<polygon data-leader={n.key} />{/each}
+      {#each notes as n (n.key)}
+        <g data-leader={n.key} class="leader {n.variant}">
+          <path class="line" />
+          {#if n.variant === 'formal'}<circle class="dot-a" r="3" /><circle class="dot-b" r="3" />{:else}<path class="head" />{/if}
+        </g>
+      {/each}
     </svg>
     {#each notes as n (n.key)}
       <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
       <aside
-        class="note"
+        class="callout {n.variant}"
         class:aside={focused !== null && focused !== n.docId}
         role="note"
         aria-label={n.title ?? STRINGS.noteTitle}
         data-note={n.key}
         onclick={(e) => e.stopPropagation()}
       >
-        <div class="note-head">
-          <strong>{n.title ?? STRINGS.noteTitle}</strong>
-          <button type="button" aria-label={STRINGS.close} onclick={() => toggleNote(n.docId, n.hotspotId)}>×</button>
-        </div>
+        <button type="button" class="x" aria-label={STRINGS.close} onclick={() => toggleNote(n.docId, n.hotspotId)}>×</button>
+        {#if n.title}<p class="note-title">{n.title}</p>{/if}
         <Rich blocks={n.blocks} />
       </aside>
     {/each}
@@ -312,14 +336,30 @@
   .doc.dragging { cursor: grabbing; transition: none; }
   .doc.aside { pointer-events: none; }
   .leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 200000; overflow: visible; }
-  .leaders polygon { fill: #fffdf5; stroke: #2b2118; stroke-width: 2; stroke-linejoin: round; }
-  .note { position: absolute; left: 0; top: 0; z-index: 200001; box-sizing: border-box; max-height: 45%; overflow: auto;
-          background: #fffdf5; color: #2b2118; border: 3px solid #2b2118; padding: 0.5rem 0.75rem; font-size: 0.9rem; font-family: Georgia, serif;
-          box-shadow: 0 0.3rem 1rem rgba(0, 0, 0, 0.45); animation: note-in 0.25s ease both; }
-  .note.aside { opacity: 0.35; pointer-events: none; }
-  .note-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-bottom: 0.3rem; }
-  .note button { font: inherit; line-height: 1; cursor: pointer; border: 0; background: transparent; color: inherit; padding: 0 0.2rem; font-size: 1.2rem; }
-  .note button:focus-visible { outline: 2px solid #1d4ed8; }
+  /* Connectors have a light core with a dark glow (formal) or a pale-ink core with a dark glow (note),
+     so they read over both the cream paper and the dark table. Placeholder colours: to move into the theme. */
+  .leader { fill: none; filter: drop-shadow(0 0 0.6px rgba(0, 0, 0, 1)) drop-shadow(0 1px 0.8px rgba(0, 0, 0, 0.7)); }
+  .leader.formal .line { stroke: #f6e08e; stroke-width: 2.4; stroke-dasharray: 0.1 6; stroke-linecap: round; }
+  .leader.formal circle { fill: #f3dc8a; }
+  .leader.note .line, .leader.note .head { stroke: #d6e0ff; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+  .callout { position: absolute; left: 0; top: 0; z-index: 200001; box-sizing: border-box; max-height: 45%; overflow: auto; animation: note-in 0.25s ease both; }
+  .callout.aside { opacity: 0.35; pointer-events: none; }
+  .callout :global(p) { margin: 0 0 0.4em; }
+  .callout :global(p:last-child) { margin-bottom: 0; }
+  .note-title { font-weight: bold; }
+  .x { position: absolute; top: 1px; right: 3px; font: inherit; font-size: 1rem; line-height: 1; cursor: pointer; border: 0; background: transparent; color: inherit; opacity: 0.45; padding: 0 0.2rem; }
+  .x:hover, .x:focus-visible { opacity: 1; }
+  .x:focus-visible { outline: 2px solid #1d4ed8; }
+
+  /* Formal: slim dark glass card, typed voice. */
+  .callout.formal { padding: 0.4rem 1.3rem 0.45rem 0.7rem; background: rgba(18, 14, 10, 0.86); color: #eadfc6; font: 0.78rem/1.4 Georgia, serif;
+                 border: 1px solid rgba(234, 223, 198, 0.28); border-radius: 3px; backdrop-filter: blur(2px); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); }
+  .callout.formal .note-title { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.75; }
+
+  /* Note: handwritten straight onto the table, no box. A dark halo keeps it legible over paper. */
+  .callout.note { padding: 0 1.1rem 0 0.2rem; color: #e1e8ff; font: 0.95rem/1.3 'Segoe Script', 'Bradley Hand', 'Comic Sans MS', cursive; transform-origin: left top;
+               text-shadow: 0 0 1px #000, 0 0 3px rgba(0, 0, 0, 0.85), 0 1px 1px #000; overflow: visible; }
   @keyframes note-in { from { opacity: 0; } to { opacity: 1; } }
   .hint { position: absolute; bottom: 0.6rem; width: 100%; text-align: center; margin: 0; font-size: 0.8rem; color: #b8a98f; pointer-events: none; }
 
@@ -327,5 +367,5 @@
   .back { position: absolute; inset: 0; background: #cda658; border-radius: 0.4rem; }
   .flap { position: absolute; inset: 0; background: linear-gradient(#e8c981, #dcb86b); border-radius: 0.4rem; transform-origin: top; transition: transform 0.6s ease; }
   .open .flap { transform: rotateX(-160deg); }
-  @media (prefers-reduced-motion: reduce) { .doc, .flap { transition: none; } .note { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .doc, .flap { transition: none; } .callout { animation: none; } }
 </style>

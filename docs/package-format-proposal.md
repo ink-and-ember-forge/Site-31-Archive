@@ -99,7 +99,7 @@ Each hotspot has an `id`, an **anchor** (where it sits) and a **target** (what i
 
 - **Anchor:** either `{ type: "text", slot }` (a marked span `[the words]{#hotspot-id}` in that slot's Markdown, where the id matches the hotspot's `id`, so it survives reflow) or `{ type: "rect", x, y, width, height }` in fractions of the document (for images and receipts).
 - **Target** is one of:
-  - `lightbox`: marginal note content shown in an overlay (`text` inline, or `file` inside the package, plus optional `title`)
+  - `lightbox`: marginal note content shown in an overlay (`text` inline, or `file` inside the package, plus optional `title`). It has an optional `variant`: `formal` (default; typed, institutional) or `note` (handwritten). The look of each variant is the viewer's, and is to move into the shared theme
   - `document`: reveals a supplementary document by id
   - `registry`: opens a registry entry by global id
 

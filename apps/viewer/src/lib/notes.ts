@@ -14,6 +14,8 @@ export interface NoteInput {
   doc: { left: number; right: number };
   /** Rendered height of the callout. */
   height: number;
+  /** Callout width; defaults to NOTE_WIDTH. */
+  width?: number;
 }
 
 export interface NotePlacement {
@@ -30,6 +32,8 @@ export interface NotePlacement {
   bx: number;
   by1: number;
   by2: number;
+  /** Where a single-line connector meets the callout edge (middle of by1..by2). */
+  by: number;
   /** The anchor is off the table, so the callout is hidden. */
   hidden: boolean;
 }
@@ -38,7 +42,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 
 export function placeNotes(inputs: NoteInput[], table: { width: number; height: number }): NotePlacement[] {
   const placed: NotePlacement[] = inputs.map((n) => {
-    const width = Math.min(NOTE_WIDTH, table.width * 0.4);
+    const width = Math.min(n.width ?? NOTE_WIDTH, table.width * 0.4);
     // Notes go to the right of the document, as in margins; the left is used only if there is no room.
     const roomRight = table.width - n.doc.right - GAP - MARGIN >= width;
     const roomLeft = n.doc.left - GAP - MARGIN >= width;
@@ -59,6 +63,7 @@ export function placeNotes(inputs: NoteInput[], table: { width: number; height: 
       bx: side === 'right' ? x : x + width,
       by1: 0,
       by2: 0,
+      by: 0,
       hidden: ax < 0 || ax > table.width || ay < 0 || ay > table.height,
     };
   });
@@ -78,6 +83,7 @@ export function placeNotes(inputs: NoteInput[], table: { width: number; height: 
     const centre = clamp(p.ay, p.y + 12, p.y + p.height - 12);
     p.by1 = centre - half;
     p.by2 = centre + half;
+    p.by = centre;
   }
   return placed;
 }
