@@ -93,8 +93,12 @@ Each hotspot has an `id`, an **anchor** (where it sits) and a **target** (what i
 - Missing optional files or fields never block opening. Malformed hotspots are dropped with a console warning; a malformed manifest fails that one episode only, and the wall still loads.
 - Tests: a sample package labelled placeholder, plus malformed and partial fixtures.
 
-## 9. Open points for the author
+## 9. Decisions taken on this draft (2026-11-20)
 
-1. **Hotspot anchoring in text:** marked spans inside the Markdown (flexible, slightly fiddly to hand-write) versus rectangles only (simple, breaks if text reflows).
-2. **Handwritten documents:** is the handwriting a font applied to Markdown (cheap, the look is data), or scanned/drawn images (authentic, heavier)?
-3. **Folder wall metadata:** is `index.json` generated from each `case.json` at build, so nothing is duplicated by hand?
+1. **Hotspots in text** are marked spans inside the Markdown; rectangles are used for images and receipts.
+2. **Handwritten documents** are Markdown text rendered with a handwriting font style (a swappable style asset). An image document type remains available for special pages later.
+
+## 10. Still to confirm
+
+- `index.json` is generated from each `case.json` at build, so nothing is duplicated by hand (assumed yes).
+- Final approval of this proposal as a whole.

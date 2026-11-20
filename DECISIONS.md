@@ -45,6 +45,12 @@ The build zips each folder into one portable file and generates the archive inde
 while writing. This gives both with no manual pack step. Format details are in
 `docs/package-format-proposal.md` and are NOT yet approved.
 
+## 2026-11-20: Hotspot and handwriting choices (draft format, not yet approved)
+
+Text hotspots are marked spans in Markdown, rectangles for images and receipts. Handwriting is a font
+style applied to Markdown, not scanned images. *Reason:* robust to reflow, text stays editable, and the
+look is data.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
