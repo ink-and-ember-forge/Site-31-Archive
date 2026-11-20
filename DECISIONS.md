@@ -248,6 +248,14 @@ Selecting or editing a document focuses it in the preview; editing positions ste
 New documents appear in place, a hidden document is revealed when it is the one being edited, and a failed reload leaves the old
 table on screen. The messages are origin-checked in both directions, and do nothing on the public website.
 
+## 2026-11-20: Richer receipts approved; step 1 (format and maths) built
+
+The author approved `docs/receipt-proposal.md`: named tax categories on each receipt, per-item product code and quantity at unit price,
+tender and change, and free-text slots for everything else, with paper wear left for later. Step 1 is in: all additive, `formatVersion`
+stays 1, and older single-rate receipts load and total exactly as before (read as one category, "T"). Money stays whole pence; quantities are
+held in thousandths; each category is rounded on its own so the printed table adds up. Bad categories, item fields and tenders are dropped
+or ignored with a reason, never losing the receipt. The tool does not yet edit the new fields, so until step 3 such a receipt must be edited by hand.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,

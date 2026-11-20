@@ -1,6 +1,6 @@
 // The item-list editor's working copy and how it becomes a saved list. Pure functions, so every rule is tested
 // without a window. Nothing is saved unless the whole list is valid: a half-typed price must never quietly drop a row.
-import { MAX_CURRENCY_LENGTH, MAX_ITEMS, MAX_TAX_LABEL_LENGTH, parsePriceText, parseRateText, type ItemLine, type ItemsContent } from '@archive/casefile/money';
+import { MAX_CURRENCY_LENGTH, MAX_ITEMS, MAX_TAX_LABEL_LENGTH, lineMinor, parsePriceText, parseRateText, type ItemLine, type ItemsContent } from '@archive/casefile/money';
 
 export type TaxChoice = 'none' | 'added' | 'included';
 
@@ -24,8 +24,8 @@ let nextKey = 1;
 export const newRow = (over: Partial<Row> = {}): Row => ({ key: nextKey++, name: '', priceText: '', taxable: false, ...over });
 
 /** A price as the author would type it: no trailing zeros beyond two decimals. */
-const priceToText = (price: number): string => {
-  const minor = Math.round(price * 100);
+const priceToText = (item: ItemLine): string => {
+  const minor = lineMinor(item) ?? 0;
   return minor % 100 === 0 ? String(minor / 100) : (minor / 100).toFixed(2);
 };
 
@@ -35,7 +35,7 @@ export function draftFrom(content?: ItemsContent): Draft {
     taxMode: content?.tax?.mode ?? 'none',
     rateText: content?.tax ? String(content.tax.rate) : '20',
     labelText: content?.tax?.label ?? '',
-    rows: (content?.items ?? []).map((i) => newRow({ name: i.name, priceText: priceToText(i.price), taxable: i.taxable === true })),
+    rows: (content?.items ?? []).map((i) => newRow({ name: i.name, priceText: priceToText(i), taxable: i.taxable === true })),
   };
 }
 

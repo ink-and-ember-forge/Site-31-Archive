@@ -5,7 +5,9 @@ import {
   formatRate,
   MAX_ITEMS,
   normaliseChoices,
+  lineMinor,
   normaliseItems,
+  resolveTaxes,
   toMinorUnits,
   type ItemLine,
   type TaxSetting,
@@ -66,7 +68,7 @@ describe('computeTotals', () => {
   ];
 
   it('with no tax setting, the total is the subtotal', () => {
-    expect(totals(items)).toEqual({ subtotal: 1850, base: 1650, tax: 0, total: 1850 });
+    expect(totals(items)).toEqual({ subtotal: 1850, base: 0, tax: 0, total: 1850 }); // nothing to tax, so no taxed base
     expect(computeTotals({ items }).hasTax).toBe(false);
   });
 
@@ -332,5 +334,212 @@ describe('parseRateText', () => {
       const r = parseRateText(bad);
       expect(r.ok, JSON.stringify(bad)).toBe(false);
     }
+  });
+});
+
+describe('tax categories', () => {
+  const taxes = [
+    { code: 'A', label: 'VAT', rate: 20 },
+    { code: 'B', label: 'VAT', rate: 0 },
+    { code: 'C', label: 'LUXURY', rate: 5 },
+  ];
+  const items: ItemLine[] = [
+    { name: 'X', price: 4.5, tax: 'A' },
+    { name: 'Y', price: 2, tax: 'B' },
+    { name: 'Z', price: 12, tax: 'A' },
+    { name: 'PLAIN', price: 1 },
+  ];
+
+  it('works out tax per category, and the added tax is summed into the total', () => {
+    const t = computeTotals({ items, taxes, taxMode: 'added' });
+    expect(t.subtotal).toBe(1950);
+    expect(t.categories).toEqual([
+      { code: 'A', label: 'VAT', rate: 20, base: 1650, tax: 330 },
+      { code: 'B', label: 'VAT', rate: 0, base: 200, tax: 0 },
+    ]); // C is unused, so it has no row
+    expect(t.tax).toBe(330);
+    expect(t.total).toBe(2280);
+    expect(t.taxableBase).toBe(1850);
+  });
+
+  it('included tax is the share of each category, and the total does not change', () => {
+    const t = computeTotals({ items, taxes, taxMode: 'included' });
+    expect(t.categories[0].tax).toBe(275); // 16.50 * 20 / 120
+    expect(t.total).toBe(1950);
+  });
+
+  it('defaults to tax added on top', () => {
+    expect(computeTotals({ items, taxes }).taxMode).toBe('added');
+  });
+
+  it('rounds each category on its own, so the printed table adds up to the printed tax', () => {
+    const many: ItemLine[] = [{ name: 'a', price: 0.1, tax: 'A' }, { name: 'b', price: 0.1, tax: 'A' }, { name: 'c', price: 0.1, tax: 'B' }];
+    const t = computeTotals({ items: many, taxes: [{ code: 'A', rate: 17.5 }, { code: 'B', rate: 17.5 }], taxMode: 'added' });
+    expect(t.categories.map((c) => c.tax)).toEqual([4, 2]); // 0.035 -> 4p, 0.0175 -> 2p
+    expect(t.tax).toBe(6);
+    expect(t.total).toBe(36);
+  });
+
+  it('a line that names an unknown category is not taxed', () => {
+    const t = computeTotals({ items: [{ name: 'a', price: 1, tax: 'Q' }], taxes });
+    expect(t.tax).toBe(0);
+    expect(t.lines[0].taxable).toBe(false);
+  });
+
+  it('an older single tax setting still works, as category T', () => {
+    const t = computeTotals({ items: [{ name: 'a', price: 10, taxable: true }, { name: 'b', price: 5 }], tax: { mode: 'added', rate: 20, label: 'VAT' } });
+    expect(t.categories).toEqual([{ code: 'T', label: 'VAT', rate: 20, base: 1000, tax: 200 }]);
+    expect(t.total).toBe(1700);
+    expect(resolveTaxes({ tax: { mode: 'included', rate: 5 } }).categories[0].code).toBe('T');
+  });
+
+  it('categories take over from the older setting, and "taxable" is then ignored', () => {
+    const t = computeTotals({ items: [{ name: 'a', price: 10, taxable: true }], tax: { mode: 'added', rate: 50 }, taxes: [{ code: 'A', rate: 10 }] });
+    expect(t.tax).toBe(0);
+  });
+});
+
+describe('quantity at unit price', () => {
+  it('the line is quantity x unit price, rounded half away from zero to the penny', () => {
+    expect(lineMinor({ quantity: 3, unitPrice: 1.5 })).toBe(450);
+    expect(lineMinor({ quantity: 0.452, unitPrice: 2.99 })).toBe(135); // 1.35148
+    expect(lineMinor({ quantity: 0.5, unitPrice: 0.01 })).toBe(1); // 0.005 -> 0.01
+    expect(lineMinor({ quantity: 3, unitPrice: -1.5 })).toBe(-450);
+  });
+  it('is exact where floating point is not', () => {
+    expect(lineMinor({ quantity: 3, unitPrice: 1.1 })).toBe(330); // 3 * 1.1 is 3.3000000000000003
+    expect(lineMinor({ quantity: 0.3, unitPrice: 0.1 })).toBe(3);
+  });
+  it('quantity x unit price wins over a price, and a price alone still works', () => {
+    expect(lineMinor({ price: 99, quantity: 2, unitPrice: 1 })).toBe(200);
+    expect(lineMinor({ price: 5 })).toBe(500);
+    expect(lineMinor({ quantity: 2 })).toBeNull();
+    expect(lineMinor({ unitPrice: 2 })).toBeNull();
+    expect(lineMinor({})).toBeNull();
+  });
+  it('refuses unusable quantities and lines that are too large', () => {
+    for (const quantity of [0, -1, NaN, 10_001]) expect(lineMinor({ quantity, unitPrice: 1 })).toBeNull();
+    expect(lineMinor({ quantity: 10_000, unitPrice: 1_000_000 })).toBeNull(); // 10,000,000,000 is over the limit
+  });
+  it('is carried on the priced line for display', () => {
+    const t = computeTotals({ items: [{ name: 'APPLES', code: '4011', quantity: 2, unitPrice: 1.5 }] });
+    expect(t.lines[0]).toMatchObject({ minor: 300, quantity: 2, unitMinor: 150, code: '4011' });
+    expect(t.subtotal).toBe(300);
+  });
+});
+
+describe('tender and change', () => {
+  const items: ItemLine[] = [{ name: 'A', price: 18.5 }];
+  it('change is what is handed over above the total', () => {
+    const t = computeTotals({ items, tender: { method: 'CASH', amount: 20 } });
+    expect(t).toMatchObject({ tendered: 2000, tenderMethod: 'CASH', change: 150 });
+  });
+  it('change is worked out against the total including added tax', () => {
+    const t = computeTotals({ items: [{ name: 'A', price: 10, tax: 'A' }], taxes: [{ code: 'A', rate: 20 }], tender: { amount: 20 } });
+    expect(t.total).toBe(1200);
+    expect(t.change).toBe(800);
+  });
+  it('an exact or short payment gives no change, and nothing is invented', () => {
+    expect(computeTotals({ items, tender: { amount: 18.5 } }).change).toBe(0);
+    expect(computeTotals({ items, tender: { amount: 10 } })).toMatchObject({ tendered: 1000, change: 0 });
+  });
+  it('no tender, no tender fields', () => {
+    const t = computeTotals({ items });
+    expect(t.tendered).toBeUndefined();
+    expect(t.change).toBeUndefined();
+  });
+  it('an unusable amount is ignored', () => {
+    expect(computeTotals({ items, tender: { amount: NaN } }).tendered).toBeUndefined();
+    expect(computeTotals({ items, tender: { amount: -5 } }).tendered).toBeUndefined();
+  });
+});
+
+describe('normaliseItems with categories, item fields and tender', () => {
+  it('keeps a full, valid receipt exactly, in reading order', () => {
+    const raw = {
+      kind: 'items',
+      currency: '£',
+      taxes: [{ code: 'A', label: 'VAT', rate: 20 }, { code: 'B', rate: 0 }],
+      taxMode: 'included',
+      tender: { method: 'CARD', amount: 10 },
+      items: [
+        { name: 'TEA', code: '123', quantity: 2, unitPrice: 1.5, tax: 'A' },
+        { name: 'BREAD', price: 1, tax: 'B' },
+      ],
+    };
+    const { content, issues } = normaliseItems(raw);
+    expect(issues).toEqual([]);
+    expect(content).toEqual(raw);
+    expect(Object.keys(content)).toEqual(['kind', 'currency', 'taxes', 'taxMode', 'tender', 'items']);
+    expect(Object.keys(content.items[0])).toEqual(['name', 'code', 'quantity', 'unitPrice', 'tax']);
+  });
+
+  it('drops a bad category with a reason and keeps the rest', () => {
+    const { content, issues } = normaliseItems({
+      taxes: [{ code: 'A', rate: 20 }, { code: 'A', rate: 5 }, { code: '', rate: 1 }, { code: 'TOOLONG', rate: 1 }, { code: 'B', rate: 101 }, { code: 'C', rate: '5' }, null, { code: ' D ', rate: 5 }],
+      items: [],
+    });
+    expect(content.taxes?.map((c) => c.code)).toEqual(['A', 'D']);
+    expect(issues).toHaveLength(6);
+    expect(issues.join(' | ')).toContain('another category already uses that code');
+  });
+
+  it('too many categories, and a non-list, are handled', () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({ code: `C${i}`, rate: 1 }));
+    expect(normaliseItems({ taxes: many }).content.taxes).toHaveLength(10);
+    const r = normaliseItems({ taxes: 'A', items: [{ name: 'x', price: 1 }] });
+    expect(r.content.taxes).toBeUndefined();
+    expect(r.content.items).toHaveLength(1);
+    expect(r.issues[0]).toContain('must be a list');
+  });
+
+  it('ignores a bad tax mode, and the older setting when categories are present', () => {
+    expect(normaliseItems({ taxMode: 'sideways', taxes: [{ code: 'A', rate: 1 }] }).issues[0]).toContain('tax mode was ignored');
+    const r = normaliseItems({ taxes: [{ code: 'A', rate: 1 }], tax: { mode: 'added', rate: 20 }, items: [{ name: 'x', price: 1, taxable: true }] });
+    expect(r.content.tax).toBeUndefined();
+    expect(r.content.items[0].taxable).toBeUndefined();
+    expect(r.issues.join('|')).toContain('single tax setting was ignored');
+  });
+
+  it('an item that names a missing category is kept untaxed, with a reason', () => {
+    const { content, issues } = normaliseItems({ taxes: [{ code: 'A', rate: 1 }], items: [{ name: 'x', price: 1, tax: 'Z' }, { name: 'y', price: 1, tax: 7 }] });
+    expect(content.items.map((i) => i.tax)).toEqual([undefined, undefined]);
+    expect(issues).toHaveLength(2);
+    expect(issues[0]).toContain('does not exist');
+  });
+
+  it('an item needs a price, or both a quantity and a unit price', () => {
+    const { content, issues } = normaliseItems({ items: [{ name: 'a' }, { name: 'b', quantity: 2 }, { name: 'c', quantity: 2, unitPrice: 1 }, { name: 'd', price: 3, quantity: 2 }] });
+    expect(content.items.map((i) => i.name)).toEqual(['c', 'd']);
+    expect(content.items[1].quantity).toBeUndefined(); // the half pair is ignored, the price kept
+    expect(issues).toHaveLength(4);
+  });
+
+  it('ignores bad quantity pairs and product codes without losing the item', () => {
+    const { content, issues } = normaliseItems({ items: [{ name: 'a', price: 2, quantity: 0, unitPrice: 1 }, { name: 'b', price: 2, code: 7 }, { name: 'c', price: 2, code: 'X'.repeat(21) }] });
+    expect(content.items).toEqual([{ name: 'a', price: 2 }, { name: 'b', price: 2 }, { name: 'c', price: 2 }]);
+    expect(issues).toHaveLength(3);
+  });
+
+  it('a bad price is ignored when a quantity and unit price can stand in', () => {
+    const { content, issues } = normaliseItems({ items: [{ name: 'a', price: 'x', quantity: 2, unitPrice: 1 }] });
+    expect(content.items).toEqual([{ name: 'a', quantity: 2, unitPrice: 1 }]);
+    expect(issues).toHaveLength(1);
+  });
+
+  it('reads a tender, and ignores a bad one with a reason', () => {
+    expect(normaliseItems({ tender: { method: '  cash ', amount: 5 } }).content.tender).toEqual({ method: 'cash', amount: 5 });
+    expect(normaliseItems({ tender: { amount: 0 } }).content.tender).toEqual({ amount: 0 });
+    for (const tender of [{ method: 'CASH' }, { amount: -1 }, { amount: '5' }, { amount: 2_000_000 }, 5, null, []]) {
+      const r = normaliseItems({ tender, items: [] });
+      expect(r.content.tender).toBeUndefined();
+      expect(r.issues[0]).toContain('tender was ignored');
+    }
+  });
+
+  it('never loses the items, whatever else is wrong', () => {
+    const r = normaliseItems({ currency: 5, taxes: 3, taxMode: 1, tender: 'x', items: [{ name: 'keep', price: 1 }] });
+    expect(r.content.items).toEqual([{ name: 'keep', price: 1 }]);
+    expect(r.issues).toHaveLength(4);
   });
 });

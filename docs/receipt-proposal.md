@@ -1,6 +1,6 @@
 # Richer receipts
 
-**Status: proposal, waiting for the author's approval.** Nothing here is built. It answers the author's request (2026-11-20)
+**Status: approved by the author on 2026-11-20. Step 1 of 3 (format, money and loader) is built; the viewer and the tool are next.** It answers the author's request (2026-11-20)
 for more information on the receipt, drawing on four real receipts (US supermarket, UK supermarket, UK discounter, a crumpled
 US discounter receipt).
 
@@ -100,3 +100,21 @@ logo, store, address, details, items, subtotal, tax table, total, tender, change
 1. Format, money and loader (categories, item fields, tender), with tests, including odd rounding cases.
 2. Viewer parts and the upgraded receipt template and sample, with screenshots for the author to judge.
 3. Authoring tool forms and end-to-end tests.
+
+## Progress
+
+| Step | Status |
+| --- | --- |
+| 1. Format, money and loader | **Built.** Tax categories, item fields, tender and change, exact maths, tolerant loader, 30 new tests. Nothing changes on screen yet. |
+| 2. Viewer | Next |
+| 3. Authoring tool | |
+
+Details settled while building step 1:
+
+- Quantity x unit price wins over a price when both are given; a price alone still works. A quantity needs a unit price and the other way round, otherwise the pair is ignored with a reason.
+- Quantities are held in thousandths (so 0.452 kg is exact) and must be above 0 and at most 10,000. A line larger than the largest allowed price is dropped.
+- Each category is rounded on its own, so the printed tax table always adds up to the printed tax.
+- A category is a row on the receipt only when a line uses it. An item naming a category that does not exist is kept, untaxed, with a warning.
+- When a receipt lists `taxes`, the older single `tax` setting and `"taxable"` marks are ignored with a warning. Older receipts load and total exactly as before.
+- Change is never negative; a payment below the total shows no change and invents nothing.
+- Until step 3, the authoring tool's item table does not know the new fields. It shows each row's line total as its price, and **saving a receipt that uses categories, codes or a tender from the tool would drop them**, so edit those receipts by hand until step 3 lands.
