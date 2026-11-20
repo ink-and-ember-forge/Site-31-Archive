@@ -80,6 +80,17 @@ describe('archive build', () => {
     expect(result.errors).toHaveLength(1);
   });
 
+  it('uses the fallback sample only while there are no real episodes', async () => {
+    const empty = workspace();
+    const withFallback = await buildArchive({ ...empty, themeDir: repoTheme, fallbackEpisodeDirs: [samplePath] });
+    expect(withFallback.index.episodes.map((e) => e.id)).toEqual(['sample-placeholder']);
+
+    const real = workspace();
+    cpSync(minimalPath, join(real.episodesDir, 'minimal'), { recursive: true });
+    const withReal = await buildArchive({ ...real, themeDir: repoTheme, fallbackEpisodeDirs: [samplePath] });
+    expect(withReal.index.episodes.map((e) => e.id)).toEqual(['minimal']);
+  });
+
   it('the folder source and zip source agree on file listing', async () => {
     const fromFolder = await fsSource(samplePath).list('');
     const zip = (await import('../src/node')).zipFolder(samplePath);

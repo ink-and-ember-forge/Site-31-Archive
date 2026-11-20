@@ -89,6 +89,12 @@ document can overflow the table height; the authoring tool should warn about thi
 shown but inert, and hidden documents are not yet revealed: hotspots and the registry overlay are step 4.
 Content is parsed to data, never injected as HTML.
 
+## 2026-11-20: Placeholder sample shows on the live site only while the archive is empty
+
+The production build falls back to the labelled `sample-placeholder` episode when `episodes/` has no
+real episodes, so the deployed viewer can be tried. It disappears automatically when the first real
+episode is merged. *Reason:* the author wanted a live link to try the viewer.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,

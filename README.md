@@ -71,7 +71,8 @@ episode opening (a missing image, a bad hotspot) are printed as warnings and deg
 
 New document looks and layouts are data: add templates and styles to `theme/` (see `theme/README.md`).
 
-Preview the archive build locally with the placeholder sample included:
+The clearly labelled placeholder sample is shown on the site only while `episodes/` is empty; the first
+real episode replaces it automatically. To include the sample alongside real episodes locally:
 
 ```bash
 npm run archive:samples -w @archive/casefile

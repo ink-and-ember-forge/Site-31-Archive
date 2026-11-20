@@ -6,7 +6,7 @@
   "scripts": {
     "predev": "npm run archive:samples -w @archive/casefile",
     "dev": "vite",
-    "prebuild": "npm run archive -w @archive/casefile",
+    "prebuild": "npm run archive:preview -w @archive/casefile",
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",

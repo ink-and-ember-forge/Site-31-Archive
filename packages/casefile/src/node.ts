@@ -81,6 +81,8 @@ export interface BuildOptions {
   outDir: string;
   /** Extra episode folders to include (for example the placeholder sample). */
   extraEpisodeDirs?: string[];
+  /** Used only when there are no episode folders at all, so a fresh archive is not blank. */
+  fallbackEpisodeDirs?: string[];
 }
 
 export interface BuildResult {
@@ -101,12 +103,13 @@ export async function buildArchive(options: BuildOptions): Promise<BuildResult> 
   const themeLoad = loadThemeFromFs(options.themeDir);
   errors.push(...themeLoad.issues);
 
-  const folders = [
+  const found = [
     ...(existsSync(options.episodesDir) ? readdirSync(options.episodesDir, { withFileTypes: true }) : [])
       .filter((e) => e.isDirectory() && !e.name.startsWith('.') && !e.name.startsWith('_'))
       .map((e) => join(options.episodesDir, e.name)),
     ...(options.extraEpisodeDirs ?? []),
   ].sort();
+  const folders = found.length === 0 ? [...(options.fallbackEpisodeDirs ?? [])] : found;
 
   rmSync(options.outDir, { recursive: true, force: true });
   mkdirSync(options.outDir, { recursive: true });

@@ -1,4 +1,4 @@
-// Usage: tsx src/cli.ts --episodes <dir> --theme <dir> --out <dir> [--samples]
+// Usage: tsx src/cli.ts --episodes <dir> --theme <dir> --out <dir> [--samples | --samples-if-empty]
 import { resolve } from 'node:path';
 import { buildArchive } from './node';
 
@@ -10,13 +10,17 @@ const flag = (name: string): string | undefined => {
 
 const here = new URL('.', import.meta.url).pathname;
 const root = resolve(here, '../../..');
-const samples = args.includes('--samples') ? [resolve(here, '../fixtures/valid/sample-placeholder')] : [];
+const sample = resolve(here, '../fixtures/valid/sample-placeholder');
+const samples = args.includes('--samples') ? [sample] : [];
+// Shows the labelled placeholder only while the real archive is empty.
+const fallback = args.includes('--samples-if-empty') ? [sample] : [];
 
 const result = await buildArchive({
   episodesDir: resolve(flag('episodes') ?? `${root}/episodes`),
   themeDir: resolve(flag('theme') ?? `${root}/theme`),
   outDir: resolve(flag('out') ?? `${root}/apps/viewer/public/archive`),
   extraEpisodeDirs: samples,
+  fallbackEpisodeDirs: fallback,
 });
 
 for (const w of result.warnings) console.warn(`warning: ${w.path}: ${w.message}`);
