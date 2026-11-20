@@ -3,6 +3,9 @@
 A plain-English guide for the author. An episode is a folder of small text files and images. You don't need
 to run a build or edit any code: save a file and the preview updates.
 
+> The authoring tool does all of this with forms, so you do not need to edit these files by hand. This guide is for
+> when you want to, and it explains what the tool saves.
+
 The reference for every field is [`package-format-proposal.md`](package-format-proposal.md). This guide is the
 practical version.
 
@@ -101,23 +104,47 @@ Each file in `documents/` describes one document:
 ```
 
 - **`role`** is `central` for the main document and `supporting` for everything else.
-- **`template`** is the kind of document: it decides the layout. The ones that exist now are `typed`,
-  `handwritten`, `receipt` and `photograph`.
-- **`style`** (optional) changes the look: paper, ink, fonts. Each template has a default.
+- **`template`** is the kind of document: it decides the layout. The ones that exist now are `witness-statement`,
+  `receipt`, `typed`, `handwritten` and `photograph`.
+- **`style`** (optional) changes the look: paper, ink, fonts. Each template has a default. A form's default makes
+  what is filled in look **typed**; the `form-handwritten` style makes it look **handwritten** instead.
 - **`slots`** are the named places the template fills with your content. Each template has its own:
 
 | Template | Slots |
 | --- | --- |
+| `witness-statement` | A letterhead (`crest`, `agency`, `agencyLines`, `formNumber`, `formRevision`), `title`, `subtitle`, an optional stamp (`stampText`, `stampDate`), the labelled boxes (`witnessName`, `homePhone`, `cellPhone`, `campusDept`, `jobPosition`, `witnessAddress`, `injuredName`, `dateOfAccident`, `witnessSignature`, `dateOfStatement`, `timeTaken`), the statement itself (`body`, Markdown, set on ruled lines), `takenBy` and `officeUse` |
+| `receipt` | `store`, `address`, `date`, `time`, `reference`, `items` (an item list, see below), `payment`, `footer` |
 | `typed` | `title` (a value), `body` (Markdown) |
 | `handwritten` | `body` (Markdown) |
-| `receipt` | `store` (a value), `items` (a Markdown table), `total` (a value) |
 | `photograph` | `image` (an image), `caption` (a value) |
 
-A slot is one of three kinds: `{ "kind": "value", "value": "..." }` for a short piece of text,
-`{ "kind": "markdown", "text": "..." }` or `{ "kind": "markdown", "file": "documents/x.md" }` for longer text, and
-`{ "kind": "image", "file": "media/images/photo.jpg", "alt": "what it shows" }` for a picture.
+The printed labels on a form (such as "Witness Name:") come from the template, so they are the same in every episode.
+Leave a slot out and its box is simply empty on the form.
 
-Text supports paragraphs (a blank line between them) and simple tables:
+A slot is one of these kinds: `{ "kind": "value", "value": "..." }` for a short piece of text,
+`{ "kind": "markdown", "text": "..." }` or `{ "kind": "markdown", "file": "documents/x.md" }` for longer text, and
+`{ "kind": "image", "file": "media/images/photo.jpg", "alt": "what it shows" }` for a picture, and
+`{ "kind": "items", ... }` for the lines of a receipt:
+
+```json
+"items": {
+  "kind": "items",
+  "currency": "£",
+  "tax": { "mode": "added", "rate": 20, "label": "VAT" },
+  "items": [
+    { "name": "Tea", "price": 4.5, "taxable": true },
+    { "name": "Biscuits", "price": 2 }
+  ]
+}
+```
+
+The total is worked out for you, so you never type it. `currency` is one symbol for the whole list (leave it out for
+none). `tax` is optional: `"mode": "added"` adds the tax to the total, and `"included"` means the prices already
+contain it and the receipt shows how much of the total is tax. Only items marked `"taxable": true` are taxed. A
+negative price is a discount. A price with more than two decimals is rounded to the nearest penny, and an item with
+no usable price is left out with a warning.
+
+Text keeps your line breaks, so pressing Enter starts a new line (a blank line starts a new paragraph). It also supports simple tables:
 
 ```
 | Item | Price |
@@ -207,11 +234,13 @@ Templates and styles live in `theme/`, shared by every episode, so the whole arc
 
 - `theme/styles/` holds looks: fonts, paper colour, ink colour. Copy one, give it a new `id`, change the values.
 - `theme/templates/` holds layouts: which pieces appear and where. A template arranges built-in pieces
-  (`title`, `paragraph`, `field-row`, `table`, `stamp`, `image`, `caption`, `stack`, `columns`).
+  (`title`, `paragraph`, `field-row`, `table`, `stamp`, `image`, `caption`, `stack`, `columns`, and for forms and
+  receipts `letterhead`, `section-bar`, `field-grid`, `ruled-lines`, `items-list`, `barcode`, `rule`, `split-row`).
 
 The ones that exist now are starter placeholders. A new look or layout is just a new file there, and the preview
 picks it up when you save. A genuinely new kind of piece (say, a cipher grid) is a small change to the viewer,
-so ask for it.
+so ask for it. New form layouts (a complaint form, a discharge summary) are also templates: ask and they are
+added from the same parts.
 
 ## 11. Publishing
 

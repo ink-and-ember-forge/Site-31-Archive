@@ -1,6 +1,6 @@
 # Authoring tool v0
 
-**Status: approved by the author on 2026-11-20. Build steps 1 and 2 of 5 are done (see the end).** It follows the choices made on 2026-11-20:
+**Status: approved by the author on 2026-11-20. Build steps 1 and 2 of 5 are done, plus the document forms (see the end).** It follows the choices made on 2026-11-20:
 the tool comes first, editing is **forms beside the real viewer**, and a finished episode reaches the
 repo by **saving to a folder that the author uploads on GitHub**.
 
@@ -130,3 +130,12 @@ Decisions made while building step 1:
 - Removing a document deletes its own text files after a confirmation, and keeps its images, since other documents may use them.
 - A hidden document is not shown in the preview (a reader would not see it until a hotspot opens it), so its position is set with the number boxes.
 - A document's look (its style) is not chosen in the tool yet; each template uses its default style.
+
+## Document forms (added 2026-11-20)
+
+After trying the tool, the author asked for forms that fit each kind of paper and much richer documents (see
+`document-forms-proposal.md`). The tool now has, in addition to steps 1 and 2:
+
+- **A form shaped like the paper.** The witness statement's form has the same section bars and rows of labelled boxes as the printed form, with the statement as a larger text box. The form is worked out from the template, so any template added to the theme gets a matching form.
+- **A receipt item table.** One currency symbol, a tax setting (none, added on top, or already included) with a rate and a word for the receipt, a row per item (name, price, a "taxed" tick) that can be added, removed and reordered, and live subtotal, tax and total.
+- **New episodes start from the witness statement form**, so the first thing the author sees is the real look.

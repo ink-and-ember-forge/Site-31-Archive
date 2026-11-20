@@ -1,2 +1,13 @@
-{ "id": "receipt-thermal", "name": "Thermal receipt (PLACEHOLDER starter)", "placeholder": true,
-  "tokens": { "fontFamily": "'Courier New', monospace", "fontSize": "12px", "ink": "#333333", "paper": "#ffffff" } }
+{
+  "id": "receipt-thermal",
+  "name": "Thermal receipt (PLACEHOLDER starter)",
+  "placeholder": true,
+  "tokens": {
+    "fontFamily": "'Courier New', Courier, monospace",
+    "fontSize": "12px",
+    "ink": "#222222",
+    "paper": "#ffffff",
+    "edge": "torn",
+    "line": "#777777"
+  }
+}

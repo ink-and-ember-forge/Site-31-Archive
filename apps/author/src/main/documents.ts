@@ -3,11 +3,12 @@
 // author (or a later step) has added, such as hotspots, is left exactly as it was.
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, basename } from 'node:path';
-import { isSafePath, type Layout, type Template } from '@archive/casefile';
+import { isSafePath, normaliseItems, type ItemsContent, type Layout, type Template } from '@archive/casefile';
 import {
   addDocumentToManifest,
   clampLayout,
   defaultLayout,
+  editorPlan,
   imageFileName,
   isValidId,
   newDocumentFiles,
@@ -71,16 +72,16 @@ export class DocumentFiles {
       try {
         doc = this.readJson(this.docPath(entry.id));
       } catch {
-        return { ...base, template: '?', templateName: 'Unreadable document', slots: [], readable: false };
+        return { ...base, template: '?', templateName: 'Unreadable document', slots: [], plan: [], readable: false };
       }
       const template = templates[String(doc.template)];
       const slotsJson = (doc.slots as Record<string, Json> | undefined) ?? {};
       // The template decides which slots exist and in what order; any extra ones already in the file follow.
       const defs = template
-        ? template.slots.map((s) => ({ name: s.name, kind: s.kind, required: s.required === true }))
+        ? template.slots.map((s) => ({ name: s.name, kind: s.kind, required: s.required === true, label: s.label ?? '' }))
         : [];
       for (const name of Object.keys(slotsJson)) {
-        if (!defs.some((d) => d.name === name)) defs.push({ name, kind: (slotsJson[name].kind as SlotView['kind']) ?? 'value', required: false });
+        if (!defs.some((d) => d.name === name)) defs.push({ name, kind: (slotsJson[name].kind as SlotView['kind']) ?? 'value', required: false, label: '' });
       }
       const slots: SlotView[] = defs.map((def) => {
         const slot = slotsJson[def.name];
@@ -93,11 +94,28 @@ export class DocumentFiles {
             const file = this.resolveFile(slot.file);
             if (file && existsSync(file)) view.text = readFileSync(file, 'utf8');
           }
-        } else if (typeof slot.file === 'string') view.image = { file: slot.file, alt: typeof slot.alt === 'string' ? slot.alt : '' };
+        } else if (def.kind === 'image') {
+          if (typeof slot.file === 'string') view.image = { file: slot.file, alt: typeof slot.alt === 'string' ? slot.alt : '' };
+        } else if (def.kind === 'items') {
+          if (slot.kind === 'items') view.items = normaliseItems(slot).content;
+          else if (slot.kind === 'markdown') view.legacyText = typeof slot.text === 'string' ? slot.text : this.readMarkdownFile(slot.file);
+        }
         return view;
       });
-      return { ...base, template: String(doc.template), templateName: (template && templateInfos({ [template.id]: template })[0].name) || String(doc.template), slots, readable: true };
+      return {
+        ...base,
+        template: String(doc.template),
+        templateName: (template && templateInfos({ [template.id]: template })[0].name) || String(doc.template),
+        slots,
+        plan: template ? editorPlan(template) : [],
+        readable: true,
+      };
     });
+  }
+
+  private readMarkdownFile(file: unknown): string {
+    const path = typeof file === 'string' ? this.resolveFile(file) : null;
+    return path && existsSync(path) ? readFileSync(path, 'utf8') : '';
   }
 
   // ---------------------------------------------------------------- adding and removing
@@ -115,7 +133,7 @@ export class DocumentFiles {
       writeFileSync(target, content);
     }
     this.writeDoc(id, document);
-    this.writeManifest(addDocumentToManifest(manifest, id, defaultLayout(template.aspect, this.ids(manifest).length)));
+    this.writeManifest(addDocumentToManifest(manifest, id, defaultLayout(template.aspect, this.ids(manifest).length, template.defaultWidth)));
     return { ok: true, value: id };
   }
 
@@ -232,6 +250,22 @@ export class DocumentFiles {
     const name = imageFileName(basename(sourcePath), readdirSync(dir));
     copyFileSync(sourcePath, join(dir, name));
     slots[slotName] = { ...(slots[slotName] ?? {}), kind: 'image', file: `media/images/${name}` };
+    this.writeDoc(id, doc);
+    return ok;
+  }
+
+  /**
+   * Saves an itemised list. It is checked again here, strictly: anything the reader would drop is refused instead,
+   * so what the author sees is what is saved.
+   */
+  setItems(id: string, slotName: string, content: unknown): Result<true> {
+    const found = this.editableSlot(id, slotName);
+    if (!found.ok) return found;
+    const { doc, slots } = found.value;
+    if (this.slotKind(String(doc.template), slotName, slots[slotName]) !== 'items') return fail('That part of the document is not an item list.');
+    const checked = normaliseItems(content);
+    if (checked.issues.length > 0) return fail(`The list could not be saved: ${checked.issues.join('; ')}.`);
+    slots[slotName] = { ...checked.content }; // kind, currency, tax, items: written in that order
     this.writeDoc(id, doc);
     return ok;
   }

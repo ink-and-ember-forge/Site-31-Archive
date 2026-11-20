@@ -4,7 +4,7 @@ import { join, relative, sep } from 'node:path';
 import { zipSync } from 'fflate';
 import { loadCasefile } from './loader';
 import { isSafePath, type PackageSource } from './source';
-import { checkAgainstTheme, type Theme } from './theme';
+import { checkAgainstTheme, lintTemplate, type Theme } from './theme';
 import type { ArchiveIndex, ArchiveIndexEntry, Casefile, Issue, Style, Template } from './types';
 import { CURRENT_FORMAT_VERSION } from './types';
 import { describeErrors, validateStyle, validateTemplate } from './validate';
@@ -64,7 +64,11 @@ export function loadThemeFromFs(themeDir: string): ThemeLoad {
       try {
         const value = JSON.parse(readFileSync(file, 'utf8')) as { id?: string };
         if (!validate(value)) issues.push({ severity: 'error', path, message: describeErrors(validate) });
-        else into[value.id as string] = value as T;
+        else {
+          into[value.id as string] = value as T;
+          // A template that refers to slots it does not have is a mistake in the theme, so the build fails.
+          if (sub === 'templates') for (const problem of lintTemplate(value as unknown as Template)) issues.push({ severity: 'error', path, message: problem });
+        }
       } catch {
         issues.push({ severity: 'error', path, message: 'not valid JSON' });
       }

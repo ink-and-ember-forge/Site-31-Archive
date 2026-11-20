@@ -3,36 +3,93 @@
   "$id": "template.schema.json",
   "title": "Document template, format v1",
   "type": "object",
-  "required": ["id", "slots", "layout"],
+  "required": [
+    "id",
+    "slots",
+    "layout"
+  ],
   "properties": {
-    "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
-    "name": { "type": "string" },
-    "placeholder": { "type": "boolean" },
-    "defaultStyle": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
-    "aspect": { "type": "number", "exclusiveMinimum": 0 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "placeholder": {
+      "type": "boolean"
+    },
+    "defaultStyle": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "aspect": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
     "slots": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "kind"],
+        "required": [
+          "name",
+          "kind"
+        ],
         "properties": {
-          "name": { "type": "string", "minLength": 1 },
-          "kind": { "enum": ["markdown", "image", "value"] },
-          "required": { "type": "boolean" }
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "markdown",
+              "image",
+              "value",
+              "items",
+              "choices"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          }
         }
       }
     },
-    "layout": { "$ref": "#/$defs/block" }
+    "layout": {
+      "$ref": "#/$defs/block"
+    },
+    "defaultWidth": {
+      "type": "number",
+      "minimum": 0.05,
+      "maximum": 1
+    }
   },
   "$defs": {
     "block": {
       "type": "object",
-      "required": ["block"],
+      "required": [
+        "block"
+      ],
       "properties": {
-        "block": { "type": "string", "minLength": 1 },
-        "slot": { "type": "string" },
-        "props": { "type": "object" },
-        "children": { "type": "array", "items": { "$ref": "#/$defs/block" } }
+        "block": {
+          "type": "string",
+          "minLength": 1
+        },
+        "slot": {
+          "type": "string"
+        },
+        "props": {
+          "type": "object"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/block"
+          }
+        }
       }
     }
   }

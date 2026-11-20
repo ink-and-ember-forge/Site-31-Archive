@@ -1,6 +1,6 @@
 // Pure helpers the authoring tool uses to create and update an episode's files.
 // Kept here, next to the format, so the tool and the format cannot drift apart.
-import { CURRENT_FORMAT_VERSION, type Layout } from './types';
+import { CURRENT_FORMAT_VERSION, type Block, type Layout, type SlotKind } from './types';
 
 /** The episode-level fields the author edits in the form. */
 export interface EpisodeDetails {
@@ -67,17 +67,38 @@ export function applyDetails(manifest: Record<string, unknown>, d: EpisodeDetail
   return next;
 }
 
-/** The files of a new, valid episode: one central typed document, clearly marked as placeholder. */
-export function starterEpisodeFiles(id: string, title: string, submissionDate: string): Record<string, string> {
-  return {
-    'case.json': serializeManifest({
+/**
+ * The files of a new, valid episode: one central document, clearly marked as placeholder. With a template it is a
+ * document of that template (the author's main form); without one it is a plain typed page.
+ */
+export function starterEpisodeFiles(id: string, title: string, submissionDate: string, template?: TemplateLike): Record<string, string> {
+  const manifest = (layout: Layout) =>
+    serializeManifest({
       formatVersion: CURRENT_FORMAT_VERSION,
       id,
       title: title.trim(),
       submissionDate,
       centralDocument: 'statement',
-      documents: [{ id: 'statement', layout: { x: 0.33, y: 0.04, width: 0.32 } }],
-    }),
+      documents: [{ id: 'statement', layout }],
+    });
+
+  if (template) {
+    const { document, files } = newDocumentFiles('statement', template);
+    const slots = document.slots as Record<string, { kind: string; value?: string; file?: string }>;
+    // Placeholder wording for the parts every form has, so a new episode is never blank and never mistaken for real content.
+    if (slots.title?.kind === 'value') slots.title.value = 'PLACEHOLDER: FORM TITLE';
+    if (slots.agency?.kind === 'value') slots.agency.value = 'PLACEHOLDER AGENCY';
+    const bodyFile = slots.body?.file;
+    if (bodyFile) files[bodyFile] = 'PLACEHOLDER: write the text of the main document here.\n';
+    return {
+      'case.json': manifest(clampLayout({ x: 0.33, y: 0.04, width: template.defaultWidth ?? 0.32 })),
+      'documents/statement.json': serializeJson({ ...document, role: 'central' }),
+      ...files,
+    };
+  }
+
+  return {
+    'case.json': manifest({ x: 0.33, y: 0.04, width: 0.32 }),
     'documents/statement.json': serializeJson({
       template: 'typed',
       role: 'central',
@@ -95,14 +116,16 @@ export function starterEpisodeFiles(id: string, title: string, submissionDate: s
 // ---------------------------------------------------------------------------------------------
 export interface TemplateSlot {
   name: string;
-  kind: 'markdown' | 'image' | 'value';
+  kind: SlotKind;
   required?: boolean;
+  label?: string;
 }
 
 /** The parts of a template the tool needs to build a form and a new document. */
 export interface TemplateLike {
   id: string;
   aspect?: number;
+  defaultWidth?: number;
   slots: TemplateSlot[];
 }
 
@@ -133,8 +156,8 @@ export function clampLayout(l: Layout): Layout {
  * Where a new document goes: sized so it is about half the height of the table, and each new one steps
  * down and across a little so they do not land exactly on top of each other.
  */
-export function defaultLayout(aspect: number | undefined, index: number): Layout {
-  const width = clamp((0.55 * (aspect ?? 0.75)) / 1.7, 0.12, 0.3);
+export function defaultLayout(aspect: number | undefined, index: number, preferredWidth?: number): Layout {
+  const width = preferredWidth ?? clamp((0.55 * (aspect ?? 0.75)) / 1.7, 0.12, 0.3);
   const step = index % 6;
   return clampLayout({ x: 0.08 + step * 0.05, y: 0.08 + step * 0.04, width });
 }
@@ -145,6 +168,8 @@ export function newDocumentFiles(id: string, template: TemplateLike): { document
   const files: Record<string, string> = {};
   for (const slot of template.slots) {
     if (slot.kind === 'value') slots[slot.name] = { kind: 'value', value: '' };
+    else if (slot.kind === 'items') slots[slot.name] = { kind: 'items', items: [] };
+    else if (slot.kind === 'choices') slots[slot.name] = { kind: 'choices', selected: [] };
     else if (slot.kind === 'markdown') {
       const file = `documents/${id}.${slot.name}.md`;
       slots[slot.name] = { kind: 'markdown', file };
@@ -203,4 +228,101 @@ export function imageFileName(original: string, taken: Iterable<string>): string
   let n = 1;
   while (used.has(make(n))) n++;
   return make(n);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Turning a template into the shape of its form in the tool
+// ---------------------------------------------------------------------------------------------
+
+export interface PlanCell {
+  slot: string;
+  /** Relative width, as on the paper. */
+  width: number;
+  /** An "office use only" box. */
+  shaded: boolean;
+}
+
+export type PlanItem =
+  /** A heading, from a section bar on the paper. */
+  | { type: 'bar'; text: string }
+  /** Rows of labelled boxes arranged as they are on the paper. */
+  | { type: 'grid'; rows: PlanCell[][] }
+  /** Slots listed one under another, optionally under a title. `tall` is for the long text set on ruled lines. */
+  | { type: 'slots'; title?: string; slots: string[]; tall?: boolean };
+
+/**
+ * The order and arrangement of a template's form in the tool, taken from its layout so the form on the left mirrors the
+ * paper on the right. Every slot appears exactly once: any the layout does not use are gathered at the end.
+ */
+export function editorPlan(template: { slots: { name: string }[]; layout: Block }): PlanItem[] {
+  const known = new Set(template.slots.map((s) => s.name));
+  const used = new Set<string>();
+  const plan: PlanItem[] = [];
+
+  const take = (names: unknown[]): string[] => {
+    const out: string[] = [];
+    for (const n of names) {
+      if (typeof n === 'string' && known.has(n) && !used.has(n)) {
+        used.add(n);
+        out.push(n);
+      }
+    }
+    return out;
+  };
+  const prop = (block: Block, key: string) => block.props?.[key];
+  const addSlots = (title: string | undefined, names: unknown[], tall = false) => {
+    const slots = take(names);
+    if (slots.length > 0) plan.push({ type: 'slots', ...(title ? { title } : {}), slots, ...(tall ? { tall: true } : {}) });
+  };
+
+  const walk = (block: Block) => {
+    switch (block.block) {
+      case 'stack':
+      case 'columns':
+        (block.children ?? []).forEach(walk);
+        return;
+      case 'section-bar':
+        if (typeof prop(block, 'text') === 'string') plan.push({ type: 'bar', text: prop(block, 'text') as string });
+        return;
+      case 'field-grid': {
+        const raw = prop(block, 'rows');
+        const rows: PlanCell[][] = [];
+        for (const row of Array.isArray(raw) ? raw : []) {
+          const cells: PlanCell[] = [];
+          for (const cell of Array.isArray(row) ? (row as Record<string, unknown>[]) : []) {
+            const [slot] = take([cell?.slot]);
+            if (slot) cells.push({ slot, width: typeof cell.width === 'number' && cell.width > 0 ? cell.width : 1, shaded: cell.shaded === true });
+          }
+          if (cells.length > 0) rows.push(cells);
+        }
+        if (rows.length > 0) plan.push({ type: 'grid', rows });
+        return;
+      }
+      case 'letterhead':
+        addSlots('Letterhead', ['crest', 'name', 'lines', 'reference', 'revision'].map((k) => prop(block, k)));
+        return;
+      case 'title':
+        addSlots('Title', [block.slot, prop(block, 'subtitle')]);
+        return;
+      case 'stamp':
+        addSlots('Stamp', [prop(block, 'text'), prop(block, 'date')]);
+        return;
+      case 'split-row': {
+        const cells: PlanCell[] = take([prop(block, 'left'), prop(block, 'right')]).map((slot) => ({ slot, width: 1, shaded: false }));
+        if (cells.length > 0) plan.push({ type: 'grid', rows: [cells] });
+        return;
+      }
+      case 'ruled-lines':
+        addSlots(undefined, [block.slot], true);
+        return;
+      default:
+        if (block.slot) addSlots(undefined, [block.slot]);
+        addSlots(undefined, [prop(block, 'seed')]);
+    }
+  };
+  walk(template.layout);
+
+  const rest = template.slots.map((s) => s.name).filter((n) => !used.has(n));
+  if (rest.length > 0) plan.push({ type: 'slots', title: 'Other parts', slots: rest });
+  return plan;
 }

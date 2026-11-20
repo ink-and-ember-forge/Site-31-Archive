@@ -200,7 +200,45 @@ The first Windows CI run proved its worth at once: 66 of 67 tests passed and the
 because an episode's id was taken from its folder path by splitting on the system separator, which breaks on Windows paths that
 mix `\` and `/`. It now splits on both (`folderName`), with a test.
 
+## 2026-11-20: Windows app works; feedback leads to a document-forms proposal
+
+The author installed the Windows build (v0.1.3) and said it works well. Two improvements asked for: bespoke forms per
+template (a receipt with item and price columns, one currency for the list, an automatic total, and optional tax on
+chosen lines), and far richer main documents with header information and real form structure, shown by three example
+forms. After a visual mock, the author decided: first types are the **witness statement form and the receipt** (the
+complaint form and discharge summary come later from the same parts); the filled-in voice (typed or handwritten) is
+**set per template**; receipt tax is **a setting, added on top or already included**; and new layouts are **built by me
+as templates on request, with no form designer in the tool**. The proposal is `docs/document-forms-proposal.md` and is
+awaiting approval, since it adds new content kinds to the package format (additively, `formatVersion` stays 1).
+
+## 2026-11-20: Document forms approved; step 1 built
+
+The author approved `docs/document-forms-proposal.md`. Step 1 is in: template slot labels, `items` (itemised lists with one
+currency, optional tax added or included, marked taxable lines) and `choices` (ticked options) content kinds, the money
+maths in whole pence (never floating point, half away from zero), schema changes, and loader tolerance (a bad item, currency
+or tax setting is dropped with a reason and never loses the document). `formatVersion` stays 1. Step 2 (viewer look) is next.
+
+## 2026-11-20: Document forms step 2 (viewer look) built, awaiting sign-off
+
+The viewer has new parts (letterhead, section bar, field grid, ruled lines, items list with computed totals, improved stamp,
+decorative barcode, rule, split row), the `witness-statement` template, an upgraded `receipt`, and two filled-in voices
+(typed and handwritten, as styles). The placeholder sample now uses them. Found and fixed while checking in a browser: a
+page's shape must be a minimum height, not fixed (a fixed shape clipped long content); single line breaks are kept; thin
+ruled lines vanished at some sizes until snapped to whole pixels; the focused view is sized from the real page shape. The
+author's sign-off on the look is needed before step 3 (the tool's forms). The pull request waits for step 3, because in
+between, the tool could not edit a receipt's items.
+
+## 2026-11-20: Document forms step 3 (the tool's forms) built; look signed off
+
+The author signed off the viewer look and asked for step 3. The tool now builds each document's form from its template (the
+same sections and rows of labelled boxes as the paper), gives receipts an item table (currency, tax none/added/included with
+a rate and name, taxed ticks, reorder and remove, live totals from the same code as the viewer), and starts new episodes from
+the witness statement form. Safety rules: a list is saved only when every box is valid, so a half-typed price never drops a
+row; item lists are re-checked strictly in the main process; and the window may only import the browser-safe parts of the
+format package (a test enforces it, after a blank-window bug caused by importing the whole package). One pull request carries
+the document forms work, as agreed, because releasing step 2 alone would have left the tool unable to edit receipts.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
-document types after the witness statement, house style. Next: authoring tool step 3 (hotspots), then 4 and 5.
+document types after the witness statement, house style. Next: authoring tool step 3 (hotspots), then 4 (registry and problems) and 5 (hardening).

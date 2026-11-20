@@ -41,7 +41,7 @@
 {/each}
 
 <style>
-  p { margin: 0 0 0.9em; line-height: 1.5; }
+  p { margin: 0 0 0.9em; line-height: 1.5; white-space: pre-line; }
   table { width: 100%; border-collapse: collapse; margin: 0.5em 0; }
   th, td { text-align: left; padding: 0.15em 0; border-bottom: 1px dashed currentColor; }
   .plain { background: none; color: inherit; }
