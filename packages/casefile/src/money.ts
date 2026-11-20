@@ -132,11 +132,13 @@ export interface Normalised<T> {
 export function normaliseItems(raw: unknown): Normalised<ItemsContent> {
   const issues: string[] = [];
   const source = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
-  const content: ItemsContent = { kind: 'items', items: [] };
+  let currency: string | undefined;
+  let taxSetting: TaxSetting | undefined;
+  const kept: ItemLine[] = [];
 
   if (source.currency !== undefined) {
     if (typeof source.currency === 'string' && source.currency.length <= MAX_CURRENCY_LENGTH) {
-      if (source.currency !== '') content.currency = source.currency;
+      if (source.currency !== '') currency = source.currency;
     } else issues.push(`the currency symbol was ignored: it must be text of at most ${MAX_CURRENCY_LENGTH} characters`);
   }
 
@@ -146,7 +148,7 @@ export function normaliseItems(raw: unknown): Normalised<ItemsContent> {
     const rateOk = typeof t?.rate === 'number' && Number.isFinite(t.rate) && t.rate >= 0 && t.rate <= 100;
     if (t && typeof t === 'object' && modeOk && rateOk) {
       const label = typeof t.label === 'string' ? t.label.slice(0, MAX_TAX_LABEL_LENGTH) : undefined;
-      content.tax = { mode: t.mode as TaxMode, rate: t.rate as number, ...(label ? { label } : {}) };
+      taxSetting = { mode: t.mode as TaxMode, rate: t.rate as number, ...(label ? { label } : {}) };
     } else issues.push('the tax setting was ignored: it needs a mode of "added" or "included" and a rate from 0 to 100');
   }
 
@@ -167,8 +169,10 @@ export function normaliseItems(raw: unknown): Normalised<ItemsContent> {
         if (item.taxable) clean.taxable = true;
       } else issues.push(`${where} ("${item.name}"): "taxable" was ignored because it must be true or false`);
     }
-    content.items.push(clean);
+    kept.push(clean);
   });
+  // Written in reading order, so saved files are tidy and changes show up as small diffs.
+  const content: ItemsContent = { kind: 'items', ...(currency ? { currency } : {}), ...(taxSetting ? { tax: taxSetting } : {}), items: kept };
   return { content, issues };
 }
 
@@ -192,4 +196,33 @@ export function normaliseChoices(raw: unknown): Normalised<ChoicesContent> {
     } else issues.push('the ticked choices were ignored: they must be a list');
   }
   return { content: { kind: 'choices', selected }, issues };
+}
+
+export type NumberParse = { ok: true; value: number } | { ok: false; reason: string };
+
+/**
+ * Reads a price typed by the author. Strict on purpose: it must be a plain number with at most two decimals, so
+ * what is saved is exactly what was meant. A comma is accepted as the decimal mark ("4,50") when there is no point.
+ */
+export function parsePriceText(text: string): NumberParse {
+  const raw = text.trim().replace(/\s+/g, '');
+  if (raw === '') return { ok: false, reason: 'Enter a price, like 4.50.' };
+  const t = !raw.includes('.') && (raw.match(/,/g) ?? []).length === 1 ? raw.replace(',', '.') : raw;
+  if (!/^-?\d+(\.\d+)?$/.test(t)) return { ok: false, reason: 'Type just the number, like 4.50, or -2 for a discount. The currency symbol is set once for the whole list.' };
+  if ((t.split('.')[1]?.length ?? 0) > 2) return { ok: false, reason: 'Use at most two decimal places.' };
+  const value = Number(t);
+  if (toMinorUnits(value) === null) return { ok: false, reason: `Use a price between -${MAX_PRICE.toLocaleString('en')} and ${MAX_PRICE.toLocaleString('en')}.` };
+  return { ok: true, value };
+}
+
+/** Reads a tax rate typed by the author: 0 to 100, at most two decimals. */
+export function parseRateText(text: string): NumberParse {
+  const raw = text.trim().replace(/\s+/g, '').replace(/%$/, '');
+  if (raw === '') return { ok: false, reason: 'Enter a rate from 0 to 100, like 20.' };
+  const t = !raw.includes('.') && (raw.match(/,/g) ?? []).length === 1 ? raw.replace(',', '.') : raw;
+  if (!/^\d+(\.\d+)?$/.test(t)) return { ok: false, reason: 'Type just the number, like 20 or 7.5.' };
+  if ((t.split('.')[1]?.length ?? 0) > 2) return { ok: false, reason: 'Use at most two decimal places.' };
+  const value = Number(t);
+  if (value > 100) return { ok: false, reason: 'The rate cannot be more than 100.' };
+  return { ok: true, value };
 }

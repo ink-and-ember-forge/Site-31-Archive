@@ -21,9 +21,15 @@ describe('viewing documents', () => {
     const { session } = await episode();
     const { documents, templates } = await session.state();
     expect(documents).toHaveLength(1);
-    expect(documents[0]).toMatchObject({ id: 'statement', central: true, hidden: false, readable: true, templateName: 'Typed page' });
-    expect(documents[0].slots.map((s) => [s.name, s.kind])).toEqual([['title', 'value'], ['body', 'markdown']]);
-    expect(documents[0].slots[1].text).toContain('PLACEHOLDER');
+    expect(documents[0]).toMatchObject({ id: 'statement', central: true, hidden: false, readable: true, templateName: 'Witness statement form' });
+    const body = documents[0].slots.find((s) => s.name === 'body')!;
+    expect(body).toMatchObject({ kind: 'markdown', label: 'Statement', required: true });
+    expect(body.text).toContain('PLACEHOLDER');
+    expect(documents[0].slots.find((s) => s.name === 'witnessName')).toMatchObject({ kind: 'value', label: 'Witness Name:' });
+    expect(documents[0].slots.find((s) => s.name === 'crest')).toMatchObject({ kind: 'image' });
+    // the form's arrangement comes with it, so the tool can mirror the paper
+    expect(documents[0].plan.some((p) => p.type === 'grid')).toBe(true);
+    expect(documents[0].plan.some((p) => p.type === 'bar' && p.text === 'STATEMENT')).toBe(true);
     expect(templates.map((t) => t.id).sort()).toEqual(['handwritten', 'photograph', 'receipt', 'typed', 'witness-statement']);
     expect(templates.every((t) => !t.name.includes('PLACEHOLDER'))).toBe(true);
   });
@@ -90,9 +96,9 @@ describe('editing content', () => {
     expect(after.slots.title.value).toBe('A NEW TITLE');
     expect(after.hotspots).toEqual(doc.hotspots);
     expect(after.someFutureField).toBe('kept');
-    expect(readFileSync(join(folder, 'documents', 'statement.md'), 'utf8')).toBe('First paragraph.\n\nSecond paragraph.');
+    expect(readFileSync(join(folder, 'documents', 'statement.body.md'), 'utf8')).toBe('First paragraph.\n\nSecond paragraph.');
     const state = await session.state();
-    expect(state.documents[0].slots.map((s) => s.text)).toEqual(['A NEW TITLE', 'First paragraph.\n\nSecond paragraph.']);
+    expect(state.documents[0].slots.filter((s) => ['title', 'body'].includes(s.name)).map((s) => s.text)).toEqual(['A NEW TITLE', 'First paragraph.\n\nSecond paragraph.']);
   });
 
   it('keeps text that is written inline in the document file inline', async () => {
@@ -258,7 +264,9 @@ describe('unusual episodes', () => {
     writeFileSync(join(folder, 'documents', 'statement.json'), JSON.stringify(doc));
     const view = (await session.state()).documents[0];
     expect(view.templateName).toBe('mystery');
-    expect(view.slots.map((s) => s.name)).toEqual(['title', 'body']);
+    expect(view.plan).toEqual([]);
+    expect(view.slots.map((s) => s.name)).toContain('title');
+    expect(view.slots.map((s) => s.name)).toContain('body');
   });
 
   it('survives a manifest with no documents list', async () => {
@@ -269,5 +277,85 @@ describe('unusual episodes', () => {
     mkdirSync(join(folder, 'media'), { recursive: true });
     expect((await session.state()).documents).toEqual([]);
     expect(session.addDocument('typed', 'x').ok).toBe(true);
+  });
+});
+
+
+describe('item lists (receipts)', () => {
+  const good = { kind: 'items', currency: '£', tax: { mode: 'added', rate: 20, label: 'VAT' }, items: [{ name: 'Tea', price: 4.5, taxable: true }, { name: 'Biscuits', price: 2 }] };
+
+  it('a new receipt starts with an empty list the tool can fill in', async () => {
+    const { session } = await episode();
+    session.addDocument('receipt', 'Till roll');
+    const view = (await session.state()).documents.find((d) => d.id === 'till-roll')!;
+    const items = view.slots.find((s) => s.name === 'items')!;
+    expect(items).toMatchObject({ kind: 'items', label: 'Items', required: true });
+    expect(items.items).toEqual({ kind: 'items', items: [] });
+    expect(view.plan.some((p) => p.type === 'slots' && p.slots.includes('items'))).toBe(true);
+  });
+
+  it('saves a list exactly, in a stable order, and reads it back', async () => {
+    const { session, folder } = await episode();
+    session.addDocument('receipt', 'Till roll');
+    expect(session.setItems('till-roll', 'items', good).ok).toBe(true);
+    const saved = read(folder, 'documents/till-roll.json').slots.items;
+    expect(Object.keys(saved)).toEqual(['kind', 'currency', 'tax', 'items']);
+    expect(saved).toEqual(good);
+    const view = (await session.state()).documents.find((d) => d.id === 'till-roll')!;
+    expect(view.slots.find((s) => s.name === 'items')!.items).toEqual(good);
+    expect(await session.problems()).toEqual([]);
+  });
+
+  it('refuses a list the viewer would have to cut down, and saves nothing', async () => {
+    const { session, folder } = await episode();
+    session.addDocument('receipt', 'Till roll');
+    session.setItems('till-roll', 'items', good);
+    const before = readFileSync(join(folder, 'documents', 'till-roll.json'), 'utf8');
+    for (const bad of [
+      { kind: 'items', items: [{ name: 'A', price: 'free' }] },
+      { kind: 'items', items: [{ name: 'A', price: 1 }], tax: { mode: 'sideways', rate: 5 } },
+      { kind: 'items', items: [{ name: 'A', price: 1 }], currency: 'WAYTOOLONG' },
+      { kind: 'items', items: 'none' },
+    ]) {
+      const result = session.setItems('till-roll', 'items', bad);
+      expect(result.ok, JSON.stringify(bad)).toBe(false);
+    }
+    expect(readFileSync(join(folder, 'documents', 'till-roll.json'), 'utf8')).toBe(before);
+  });
+
+  it('refuses a list for a part of the document that is not a list, or a document that is not there', async () => {
+    const { session } = await episode();
+    session.addDocument('receipt', 'Till roll');
+    expect(session.setItems('till-roll', 'store', good).ok).toBe(false);
+    expect(session.setItems('ghost', 'items', good).ok).toBe(false);
+    expect(session.setItems('../case', 'items', good).ok).toBe(false);
+  });
+
+  it('shows an older receipt written as a Markdown table, so it can be seen and replaced', async () => {
+    const { session, folder } = await episode();
+    session.addDocument('receipt', 'Old roll');
+    const docPath = join(folder, 'documents', 'old-roll.json');
+    const doc = read(folder, 'documents/old-roll.json');
+    doc.slots.items = { kind: 'markdown', text: '| Item | Price |\n| --- | --- |\n| Tea | 2.00 |' };
+    writeFileSync(docPath, JSON.stringify(doc));
+    const slot = (await session.state()).documents.find((d) => d.id === 'old-roll')!.slots.find((s) => s.name === 'items')!;
+    expect(slot.items).toBeUndefined();
+    expect(slot.legacyText).toContain('| Tea | 2.00 |');
+    // replacing it with a list is a normal save
+    expect(session.setItems('old-roll', 'items', good).ok).toBe(true);
+    expect(read(folder, 'documents/old-roll.json').slots.items.kind).toBe('items');
+  });
+
+  it('keeps everything else in the document when the list is saved', async () => {
+    const { session, folder } = await episode();
+    session.addDocument('receipt', 'Till roll');
+    session.setSlotText('till-roll', 'store', 'PLACEHOLDER STORE');
+    const doc = read(folder, 'documents/till-roll.json');
+    doc.hotspots = [{ id: 'h', anchor: { type: 'rect', x: 0, y: 0, width: 0.1, height: 0.1 }, target: { type: 'lightbox', text: 'KEEP' } }];
+    writeFileSync(join(folder, 'documents', 'till-roll.json'), JSON.stringify(doc));
+    session.setItems('till-roll', 'items', good);
+    const after = read(folder, 'documents/till-roll.json');
+    expect(after.hotspots).toEqual(doc.hotspots);
+    expect(after.slots.store.value).toBe('PLACEHOLDER STORE');
   });
 });

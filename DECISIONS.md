@@ -228,7 +228,17 @@ ruled lines vanished at some sizes until snapped to whole pixels; the focused vi
 author's sign-off on the look is needed before step 3 (the tool's forms). The pull request waits for step 3, because in
 between, the tool could not edit a receipt's items.
 
+## 2026-11-20: Document forms step 3 (the tool's forms) built; look signed off
+
+The author signed off the viewer look and asked for step 3. The tool now builds each document's form from its template (the
+same sections and rows of labelled boxes as the paper), gives receipts an item table (currency, tax none/added/included with
+a rate and name, taxed ticks, reorder and remove, live totals from the same code as the viewer), and starts new episodes from
+the witness statement form. Safety rules: a list is saved only when every box is valid, so a half-typed price never drops a
+row; item lists are re-checked strictly in the main process; and the window may only import the browser-safe parts of the
+format package (a test enforces it, after a blank-window bug caused by importing the whole package). One pull request carries
+the document forms work, as agreed, because releasing step 2 alone would have left the tool unable to edit receipts.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
-document types after the witness statement, house style. Next: the author's sign-off on the form look, then document forms step 3 (the tool's bespoke forms), then authoring tool step 3 (hotspots), 4 and 5.
+document types after the witness statement, house style. Next: authoring tool step 3 (hotspots), then 4 (registry and problems) and 5 (hardening).

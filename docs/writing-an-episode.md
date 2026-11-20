@@ -3,6 +3,9 @@
 A plain-English guide for the author. An episode is a folder of small text files and images. You don't need
 to run a build or edit any code: save a file and the preview updates.
 
+> The authoring tool does all of this with forms, so you do not need to edit these files by hand. This guide is for
+> when you want to, and it explains what the tool saves.
+
 The reference for every field is [`package-format-proposal.md`](package-format-proposal.md). This guide is the
 practical version.
 

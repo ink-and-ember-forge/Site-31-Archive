@@ -102,6 +102,17 @@ function registerIpc(): void {
     session && text(id, 100) && text(slot, 100) && text(value) ? done(session.setSlotText(id, slot, value)) : bad);
   ipcMain.handle('author:set-image-alt', (_e, id: unknown, slot: unknown, alt: unknown) =>
     session && text(id, 100) && text(slot, 100) && text(alt, 1000) ? done(session.setImageAlt(id, slot, alt)) : bad);
+  ipcMain.handle('author:set-items', (_e, id: unknown, slot: unknown, items: unknown) => {
+    // The list is checked in full by the file layer; here only its size is bounded.
+    const small = (() => {
+      try {
+        return JSON.stringify(items).length <= 400_000;
+      } catch {
+        return false;
+      }
+    })();
+    return session && text(id, 100) && text(slot, 100) && small ? done(session.setItems(id, slot, items)) : bad;
+  });
   ipcMain.handle('author:choose-image', async (_e, id: unknown, slot: unknown) => {
     if (!session || !text(id, 100) || !text(slot, 100)) return bad;
     const picked = await dialog.showOpenDialog(win!, {

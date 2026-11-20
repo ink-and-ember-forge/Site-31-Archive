@@ -26,6 +26,7 @@
     ".": "./src/index.ts",
     "./node": "./src/node.ts",
     "./schema/*": "./schema/*",
-    "./authoring": "./src/authoring.ts"
+    "./authoring": "./src/authoring.ts",
+    "./money": "./src/money.ts"
   }
 }

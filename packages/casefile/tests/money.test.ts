@@ -283,3 +283,54 @@ describe('normaliseChoices', () => {
     expect(b.issues).toHaveLength(1);
   });
 });
+
+import { parsePriceText, parseRateText } from '../src/money';
+
+describe('parsePriceText (what the author types)', () => {
+  it('reads plain prices', () => {
+    for (const [text, value] of [['4.50', 4.5], ['4.5', 4.5], ['12', 12], ['0', 0], ['0.05', 0.05], [' 4.50 ', 4.5], ['-2', -2], ['-0.50', -0.5], ['1234.56', 1234.56], ['1 234', 1234]] as const) {
+      expect(parsePriceText(text), text).toEqual({ ok: true, value });
+    }
+  });
+  it('accepts a comma as the decimal mark when there is no point', () => {
+    expect(parsePriceText('4,50')).toEqual({ ok: true, value: 4.5 });
+    expect(parsePriceText('4,5')).toEqual({ ok: true, value: 4.5 });
+  });
+  it('refuses empty, symbols, words and thousands separators with a reason', () => {
+    for (const bad of ['', '   ', '£4.50', '4.50 GBP', 'free', '4.5.0', '1,234.50', '1,234,567', '+4', '--2', '4e3', '.5', '5.', '0x10', 'NaN', 'Infinity']) {
+      const r = parsePriceText(bad);
+      expect(r.ok, JSON.stringify(bad)).toBe(false);
+      if (!r.ok) expect(r.reason.length).toBeGreaterThan(5);
+    }
+  });
+  it('refuses more than two decimals, so what is saved is what was meant', () => {
+    expect(parsePriceText('1.005')).toEqual({ ok: false, reason: 'Use at most two decimal places.' });
+  });
+  it('refuses a price out of range, and accepts the edges', () => {
+    expect(parsePriceText('1000001').ok).toBe(false);
+    expect(parsePriceText('-1000001').ok).toBe(false);
+    expect(parsePriceText('1000000')).toEqual({ ok: true, value: 1_000_000 });
+    expect(parsePriceText('-1000000')).toEqual({ ok: true, value: -1_000_000 });
+  });
+  it('whatever it accepts is a price the totals can use, exactly', () => {
+    for (const text of ['0.1', '0.2', '19.99', '4.35', '1.15', '999999.99', '-0.01']) {
+      const r = parsePriceText(text);
+      if (!r.ok) throw new Error(text);
+      expect(toMinorUnits(r.value)).toBe(Math.round(Number(text) * 100));
+    }
+  });
+});
+
+describe('parseRateText', () => {
+  it('reads rates from 0 to 100, with an optional percent sign', () => {
+    for (const [text, value] of [['20', 20], ['7.5', 7.5], ['17.25', 17.25], ['0', 0], ['100', 100], ['20%', 20], ['7,5', 7.5], [' 5 ', 5]] as const) {
+      expect(parseRateText(text), text).toEqual({ ok: true, value });
+    }
+  });
+  it('refuses anything else with a reason', () => {
+    for (const bad of ['', '-1', '101', 'abc', '1.234', '1,000', '20 percent', '5.']) {
+      const r = parseRateText(bad);
+      expect(r.ok, JSON.stringify(bad)).toBe(false);
+    }
+  });
+});

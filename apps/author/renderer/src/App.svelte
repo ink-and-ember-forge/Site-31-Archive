@@ -6,8 +6,7 @@
   import EpisodePanel from './EpisodePanel.svelte';
   import Problems from './Problems.svelte';
   import Welcome from './Welcome.svelte';
-
-  type Action = () => Promise<Result<EpisodeState> | null>;
+  import type { Action } from './lib/actions';
 
   let episode = $state<EpisodeState | null>(null);
   let selected = $state<string | null>(null); // the document being edited, or null for the episode view
@@ -16,7 +15,7 @@
   let orderText = $state('');
   let message = $state('');
   let welcomeProblems = $state<Problem[]>([]);
-  let saveState = $state<'saved' | 'saving' | 'failed'>('saved');
+  let saveState = $state<'saved' | 'saving' | 'waiting' | 'failed'>('saved');
   let previewSrc = $state('');
   let previewFrame = $state<HTMLIFrameElement>();
   const timers: Record<string, ReturnType<typeof setTimeout>> = {};
@@ -46,7 +45,11 @@
 
   // ---- saving ---------------------------------------------------------------------------------
 
-  function finish(result: Result<EpisodeState> | null) {
+  function finish(result: Result<EpisodeState> | null | undefined) {
+    if (result === undefined) {
+      saveState = 'waiting'; // held back until what is being typed is valid
+      return;
+    }
     if (result === null) return; // cancelled
     if (result.ok) {
       episode = result.value;
@@ -136,7 +139,7 @@
           <strong>{episode.id}</strong>
           <small title={episode.folder}>{episode.folder}</small>
         </div>
-        <span class="save {saveState}" role="status">{saveState === 'saved' ? 'Saved' : saveState === 'saving' ? 'Saving…' : 'Not saved'}</span>
+        <span class="save {saveState}" role="status">{saveState === 'saved' ? 'Saved' : saveState === 'saving' ? 'Saving…' : saveState === 'waiting' ? 'Not saved yet' : 'Not saved'}</span>
       </header>
 
       <div class="actions">
@@ -171,12 +174,13 @@
 {/if}
 
 <style>
-  .shell { display: grid; grid-template-columns: 25rem 1fr; height: 100%; }
+  .shell { display: grid; grid-template-columns: 29rem 1fr; height: 100%; }
   aside { background: var(--panel); border-right: 1px solid var(--line); padding: 1rem; overflow: auto; }
   aside header { display: flex; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.8rem; }
-  aside header small { display: block; color: var(--muted); max-width: 17rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+  aside header small { display: block; color: var(--muted); max-width: 21rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
   .save { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
   .save.failed { color: var(--error); }
+  .save.waiting { color: var(--warn); }
   .actions { display: flex; gap: 0.4rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
   .alert { background: #3b1f1a; border: 1px solid #7a3b32; border-radius: 4px; padding: 0.6rem 0.8rem; margin: 0 0 1rem; }
   .publish { color: var(--muted); font-size: 0.85rem; margin-top: 1.5rem; }

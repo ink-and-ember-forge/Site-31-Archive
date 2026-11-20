@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('author', {
   setSlotText: (id, slot, text) => ipcRenderer.invoke('author:set-slot-text', id, slot, text),
   chooseImage: (id, slot) => ipcRenderer.invoke('author:choose-image', id, slot),
   setImageAlt: (id, slot, alt) => ipcRenderer.invoke('author:set-image-alt', id, slot, alt),
+  setItems: (id, slot, items) => ipcRenderer.invoke('author:set-items', id, slot, items),
   revealFolder: () => ipcRenderer.invoke('author:reveal'),
   onPreview: (callback) => {
     const handler = (_event, info) => callback(info);

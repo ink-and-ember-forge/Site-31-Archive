@@ -1,6 +1,6 @@
 # Document forms
 
-**Status: approved by the author on 2026-11-20. Steps 1 and 2 of 3 are built (the look is awaiting the author's sign-off); see the end.** It answers the author's feedback after trying
+**Status: approved by the author on 2026-11-20. All three steps are built; see the end.** It answers the author's feedback after trying
 the authoring tool on 2026-11-20:
 
 1. Each document type should have its own bespoke form in the tool. A receipt has two columns (item, price),
@@ -158,8 +158,8 @@ Each step ships as a release so the author can try it.
 | Step | Status |
 | --- | --- |
 | 1. Format, money and loader | **Built.** Template slot labels, the `items` and `choices` content kinds, exact money maths, schema, tolerant loader, and 62 new tests. Nothing changes on screen yet. |
-| 2. Viewer | **Built, awaiting the author's sign-off.** The new parts, the `witness-statement` template, the upgraded receipt, and the two voices (typed and handwritten). |
-| 3. Authoring tool | After that: the bespoke forms and the items editor. |
+| 2. Viewer | **Built, signed off by the author.** The new parts, the `witness-statement` template, the upgraded receipt, and the two voices (typed and handwritten). |
+| 3. Authoring tool | **Built.** Each document's form mirrors its paper (the same sections and rows of labelled boxes), the receipt has an item table with currency, tax and live totals, and new episodes start from the witness statement form. |
 
 Details settled while building step 1:
 
@@ -177,3 +177,13 @@ Decisions made while building step 2:
 - The stamp is drawn only when its text slot has something in it, so leaving it empty means no stamp.
 - Ruled lines and thin rules snap to whole pixels where the browser supports it, so they stay crisp.
 - Old receipts written as a Markdown table still render as they did.
+
+Decisions made while building step 3:
+
+- The tool's form for a document is worked out from the template's layout (`editorPlan`), so a new template gets a matching form with no new tool code. Every part of a template appears exactly once, and any the layout does not use are gathered under "Other parts".
+- A part's printed label comes from the template (for example "Witness Name:"), with a readable fallback for a part that has none.
+- The item list is saved only when every box in it is valid. A half-typed price holds the whole save ("Not saved yet", with the reason) and never drops a row; it saves as soon as it is valid. Prices are typed as plain numbers with at most two decimals and no symbol, since the symbol is set once for the list.
+- The tool shows the same totals as the receipt, from the same code, so they cannot disagree.
+- An older receipt whose items are a Markdown table is shown, and can be replaced by an item list after a confirmation.
+- The window may import only the small browser-safe parts of the format package (`/money`, `/authoring`). The whole package builds code at load time, which the window's security policy forbids, and a test enforces this.
+- Items are written in reading order (`kind`, `currency`, `tax`, `items`) so saved files are tidy.

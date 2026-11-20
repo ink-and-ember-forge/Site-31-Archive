@@ -64,6 +64,27 @@ describe('serializeManifest', () => {
   });
 });
 
+describe('starterEpisodeFiles from a template', () => {
+  it('starts from the main form: a valid episode with no problems, marked as placeholder', async () => {
+    const { theme } = loadThemeFromFs(repoTheme);
+    const files = starterEpisodeFiles('my-episode', 'My Episode', '2026-03-14', theme.templates['witness-statement']);
+    const result = await loadCasefile(memorySource(files), { expectedId: 'my-episode' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.warnings).toEqual([]);
+    expect(checkAgainstTheme(result.casefile, theme)).toEqual([]);
+    const doc = result.casefile.documents[0];
+    expect(doc).toMatchObject({ id: 'statement', template: 'witness-statement', role: 'central' });
+    expect(doc.slots.title).toEqual({ kind: 'value', value: 'PLACEHOLDER: FORM TITLE' });
+    expect(files['documents/statement.body.md']).toContain('PLACEHOLDER');
+    expect(Object.keys(doc.slots).length).toBeGreaterThan(15); // every part of the form exists, empty
+  });
+  it('without a template it is still the plain typed page', async () => {
+    const files = starterEpisodeFiles('x', 'X', '2026-01-01');
+    expect(JSON.parse(files['documents/statement.json']).template).toBe('typed');
+  });
+});
+
 describe('starterEpisodeFiles', () => {
   it('is a valid episode with no warnings, and is marked as placeholder', async () => {
     const files = starterEpisodeFiles('my-episode', 'My Episode', '2026-03-14');
@@ -199,5 +220,72 @@ describe('imageFileName', () => {
     expect(imageFileName('???.png', [])).toBe('image.png');
     expect(imageFileName('noextension', [])).toBe('noextension');
     expect(imageFileName('../../etc/passwd.txt', [])).toBe('etc-passwd.txt');
+  });
+});
+
+import { editorPlan } from '../src/authoring';
+
+describe('editorPlan (the tool\'s form follows the paper)', () => {
+  const slots = (...names: string[]) => names.map((name) => ({ name }));
+
+  it('follows the layout in order, and every slot appears exactly once', () => {
+    const template = {
+      slots: slots('crest', 'name', 'title', 'subtitle', 'a', 'b', 'c', 'body', 'note', 'orphan'),
+      layout: {
+        block: 'stack',
+        children: [
+          { block: 'letterhead', props: { crest: 'crest', name: 'name' } },
+          { block: 'title', slot: 'title', props: { subtitle: 'subtitle' } },
+          { block: 'section-bar', props: { text: 'GENERAL' } },
+          { block: 'field-grid', props: { rows: [[{ slot: 'a', width: 2 }, { slot: 'b' }], [{ slot: 'c', shaded: true }]] } },
+          { block: 'ruled-lines', slot: 'body' },
+          { block: 'caption', slot: 'note' },
+        ],
+      },
+    };
+    const plan = editorPlan(template);
+    expect(plan).toEqual([
+      { type: 'slots', title: 'Letterhead', slots: ['crest', 'name'] },
+      { type: 'slots', title: 'Title', slots: ['title', 'subtitle'] },
+      { type: 'bar', text: 'GENERAL' },
+      { type: 'grid', rows: [[{ slot: 'a', width: 2, shaded: false }, { slot: 'b', width: 1, shaded: false }], [{ slot: 'c', width: 1, shaded: true }]] },
+      { type: 'slots', slots: ['body'], tall: true },
+      { type: 'slots', slots: ['note'] },
+      { type: 'slots', title: 'Other parts', slots: ['orphan'] },
+    ]);
+    const all = plan.flatMap((p) => (p.type === 'grid' ? p.rows.flat().map((c) => c.slot) : p.type === 'slots' ? p.slots : []));
+    expect(new Set(all).size).toBe(all.length);
+    expect([...all].sort()).toEqual(template.slots.map((s) => s.name).sort());
+  });
+
+  it('a slot used twice in the layout is shown once, at its first use', () => {
+    const plan = editorPlan({ slots: slots('ref'), layout: { block: 'stack', children: [{ block: 'field-row', slot: 'ref' }, { block: 'barcode', props: { seed: 'ref' } }] } });
+    expect(plan).toEqual([{ type: 'slots', slots: ['ref'] }]);
+  });
+
+  it('ignores references to slots the template does not have, and malformed grids', () => {
+    const plan = editorPlan({
+      slots: slots('a'),
+      layout: { block: 'stack', children: [{ block: 'field-grid', props: { rows: 'nope' } }, { block: 'field-grid', props: { rows: [[{ slot: 'ghost' }, null, 5], 'x', [{ slot: 'a', width: -3 }]] } }, { block: 'title', slot: 'ghost' }] },
+    });
+    expect(plan).toEqual([{ type: 'grid', rows: [[{ slot: 'a', width: 1, shaded: false }]] }]);
+  });
+
+  it('puts the two parts of a split row side by side', () => {
+    const plan = editorPlan({ slots: slots('date', 'time'), layout: { block: 'split-row', props: { left: 'date', right: 'time' } } });
+    expect(plan).toEqual([{ type: 'grid', rows: [[{ slot: 'date', width: 1, shaded: false }, { slot: 'time', width: 1, shaded: false }]] }]);
+  });
+
+  it('gives a template with no layout use of its slots a plain list', () => {
+    expect(editorPlan({ slots: slots('a', 'b'), layout: { block: 'stack' } })).toEqual([{ type: 'slots', title: 'Other parts', slots: ['a', 'b'] }]);
+  });
+
+  it('covers every slot of the real theme templates, once each', async () => {
+    const { theme } = loadThemeFromFs(repoTheme);
+    for (const template of Object.values(theme.templates)) {
+      const plan = editorPlan(template);
+      const all = plan.flatMap((p) => (p.type === 'grid' ? p.rows.flat().map((c) => c.slot) : p.type === 'slots' ? p.slots : []));
+      expect([...all].sort(), template.id).toEqual(template.slots.map((s) => s.name).sort());
+    }
   });
 });

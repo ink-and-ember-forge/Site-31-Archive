@@ -44,7 +44,9 @@ export class EpisodeSession {
     if (!isValidId(id)) return { ok: false, message: 'The title needs at least one letter or number, because the folder is named after it.' };
     const folder = join(parent, id);
     if (existsSync(folder)) return { ok: false, message: `There is already something called "${id}" in that location. Choose another location or change the title.` };
-    for (const [file, content] of Object.entries(starterEpisodeFiles(id, title, today))) {
+    // New episodes start from the shared theme's main form when it has one, so the first thing the author sees is the real look.
+    const starter = loadThemeFromFs(where.themeDir).theme.templates['witness-statement'];
+    for (const [file, content] of Object.entries(starterEpisodeFiles(id, title, today, starter))) {
       const target = join(folder, file);
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, content);
@@ -113,6 +115,7 @@ export class EpisodeSession {
   setSlotText = (id: string, slot: string, text: string) => this.files.setText(id, slot, text);
   importImage = (id: string, slot: string, sourcePath: string) => this.files.importImage(id, slot, sourcePath);
   setImageAlt = (id: string, slot: string, alt: string) => this.files.setImageAlt(id, slot, alt);
+  setItems = (id: string, slot: string, items: unknown) => this.files.setItems(id, slot, items);
 
   /** Packages the episode exactly as the website does, so the real viewer can show it. */
   async buildPreview(): Promise<void> {
