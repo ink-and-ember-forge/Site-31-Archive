@@ -5,7 +5,7 @@ import { zipSync } from 'fflate';
 import { loadCasefile } from './loader';
 import { isSafePath, type PackageSource } from './source';
 import { checkAgainstTheme, type Theme } from './theme';
-import type { ArchiveIndex, ArchiveIndexEntry, Issue, Style, Template } from './types';
+import type { ArchiveIndex, ArchiveIndexEntry, Casefile, Issue, Style, Template } from './types';
 import { CURRENT_FORMAT_VERSION } from './types';
 import { describeErrors, validateStyle, validateTemplate } from './validate';
 
@@ -75,6 +75,53 @@ export function loadThemeFromFs(themeDir: string): ThemeLoad {
   return { theme, issues };
 }
 
+/** Episode folders in `episodesDir` (hidden and `_`-prefixed folders are skipped). */
+export function listEpisodeFolders(episodesDir: string): string[] {
+  if (!existsSync(episodesDir)) return [];
+  return readdirSync(episodesDir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !e.name.startsWith('.') && !e.name.startsWith('_'))
+    .map((e) => join(episodesDir, e.name))
+    .sort();
+}
+
+export interface EpisodeCheck {
+  id: string;
+  errors: Issue[];
+  warnings: Issue[];
+  /** Present when the episode loaded, even with warnings. */
+  casefile?: Casefile;
+}
+
+/** Loads one episode folder and checks it against the theme. The folder name is the episode id. */
+export async function checkEpisodeFolder(folder: string, theme: Theme): Promise<EpisodeCheck> {
+  const id = folder.slice(folder.lastIndexOf(sep) + 1);
+  const result = await loadCasefile(fsSource(folder), { expectedId: id });
+  if (!result.ok) return { id, errors: result.errors, warnings: result.warnings };
+  return { id, errors: [], warnings: [...result.warnings, ...checkAgainstTheme(result.casefile, theme)], casefile: result.casefile };
+}
+
+export interface ValidateOptions {
+  episodesDir: string;
+  themeDir: string;
+  /** Check only these episode folders instead of every folder in `episodesDir`. */
+  only?: string[];
+}
+
+export interface ValidateResult {
+  /** Problems with the shared theme itself. */
+  themeIssues: Issue[];
+  episodes: EpisodeCheck[];
+}
+
+/** Checks episodes without building anything. Used by `npm run validate`. */
+export async function validateEpisodes(options: ValidateOptions): Promise<ValidateResult> {
+  const { theme, issues } = loadThemeFromFs(options.themeDir);
+  const folders = options.only ?? listEpisodeFolders(options.episodesDir);
+  const episodes: EpisodeCheck[] = [];
+  for (const folder of folders) episodes.push(await checkEpisodeFolder(folder, theme));
+  return { themeIssues: issues, episodes };
+}
+
 export interface BuildOptions {
   episodesDir: string;
   themeDir: string;
@@ -103,29 +150,23 @@ export async function buildArchive(options: BuildOptions): Promise<BuildResult> 
   const themeLoad = loadThemeFromFs(options.themeDir);
   errors.push(...themeLoad.issues);
 
-  const found = [
-    ...(existsSync(options.episodesDir) ? readdirSync(options.episodesDir, { withFileTypes: true }) : [])
-      .filter((e) => e.isDirectory() && !e.name.startsWith('.') && !e.name.startsWith('_'))
-      .map((e) => join(options.episodesDir, e.name)),
-    ...(options.extraEpisodeDirs ?? []),
-  ].sort();
+  const found = [...listEpisodeFolders(options.episodesDir), ...(options.extraEpisodeDirs ?? [])].sort();
   const folders = found.length === 0 ? [...(options.fallbackEpisodeDirs ?? [])] : found;
 
-  rmSync(options.outDir, { recursive: true, force: true });
+  // Files are overwritten in place (not the whole folder deleted) so a running dev server keeps watching it.
   mkdirSync(options.outDir, { recursive: true });
 
   const entries: ArchiveIndexEntry[] = [];
   const seen = new Set<string>();
   for (const folder of folders) {
-    const id = folder.slice(folder.lastIndexOf(sep) + 1);
-    const tag = (issue: Issue): Issue => ({ ...issue, path: `${id}/${issue.path}` });
-    const result = await loadCasefile(fsSource(folder), { expectedId: id });
-    if (!result.ok) {
-      errors.push(...result.errors.map(tag));
-      warnings.push(...result.warnings.map(tag));
+    const check = await checkEpisodeFolder(folder, themeLoad.theme);
+    const tag = (issue: Issue): Issue => ({ ...issue, path: `${check.id}/${issue.path}` });
+    warnings.push(...check.warnings.map(tag));
+    if (!check.casefile) {
+      errors.push(...check.errors.map(tag));
       continue;
     }
-    warnings.push(...result.warnings.map(tag), ...checkAgainstTheme(result.casefile, themeLoad.theme).map(tag));
+    const id = check.id;
     if (seen.has(id)) {
       errors.push({ severity: 'error', path: id, message: 'duplicate episode id' });
       continue;
@@ -134,7 +175,7 @@ export async function buildArchive(options: BuildOptions): Promise<BuildResult> 
     const bytes = zipFolder(folder);
     const file = `${id}.casefile`;
     writeFileSync(join(options.outDir, file), bytes);
-    const m = result.casefile.manifest;
+    const m = check.casefile.manifest;
     entries.push({
       id,
       title: m.title,
@@ -155,7 +196,14 @@ export async function buildArchive(options: BuildOptions): Promise<BuildResult> 
   const index: ArchiveIndex = { formatVersion: CURRENT_FORMAT_VERSION, episodes: entries };
   writeFileSync(join(options.outDir, 'index.json'), JSON.stringify(index, null, 2) + '\n');
   writeFileSync(join(options.outDir, 'theme.json'), JSON.stringify(themeLoad.theme, null, 2) + '\n');
+  rmSync(join(options.outDir, 'theme-assets'), { recursive: true, force: true });
   if (existsSync(join(options.themeDir, 'assets'))) cpSync(join(options.themeDir, 'assets'), join(options.outDir, 'theme-assets'), { recursive: true });
+
+  // Remove packages of episodes that no longer exist.
+  const keep = new Set(entries.map((e) => e.file));
+  for (const name of readdirSync(options.outDir)) {
+    if (name.endsWith('.casefile') && !keep.has(name)) rmSync(join(options.outDir, name));
+  }
 
   return { index, errors, warnings };
 }

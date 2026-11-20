@@ -143,7 +143,19 @@ The Linux AppImage build was verified end to end in the sandbox; the Mac and Win
 there. **v0.1.0 has no installers attached**; the fix ships in the next release (0.1.1).
 Note for later: when upgrading Electron, update the pinned version by hand.
 
+## 2026-11-20: Next step is the writing loop first, then the authoring tool (A, then B)
+
+Before building the Electron authoring tool, give the author a way to write episode one now: a plain-English
+guide (`docs/writing-an-episode.md`), `npm run validate` (clear per-file messages with hints), and a live preview.
+The preview is built into the viewer's dev server: `npm run dev:viewer` builds the archive, rebuilds when anything
+in `episodes/` or `theme/` is saved, refreshes the browser, and shows mistakes as an overlay. It uses the real viewer,
+so it is exactly what the reader sees. The archive build now overwrites its output in place instead of deleting the
+folder (which broke the dev server's file watching). *Reason:* the design says to grow the editor from friction actually
+felt while writing, and a visual editor can quietly consume the time meant for writing. The Electron authoring tool is
+next, built around what the author finds painful. Not yet in the viewer: voiceover playback, ledger use, custom font
+files, reader notes (all listed in the guide).
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
-document types after the witness statement, house style. Next: the author writes episode one with the tools (build step 5); reader notes, voiceover and ledger tooling follow.
+document types after the witness statement, house style. Next: the author writes episode one (build step 5), then the Electron authoring tool v0 around the friction found.
