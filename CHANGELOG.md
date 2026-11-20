@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.5](https://github.com/ink-and-ember-forge/Site-31-Archive/compare/site-31-archive-v0.1.4...site-31-archive-v0.1.5) (2026-11-20)
+
+
+### Features
+
+* **author:** keep preview zoom and positions on edit, and focus the edited document ([afb6043](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/afb6043c6330f8ecd3d97c10416d27a46da19707))
+* **author:** keep preview zoom and positions on edit, and focus the edited document ([39c5492](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/39c5492afc91b197bfda0e593294be4114711acd))
+
 ## [0.1.4](https://github.com/ink-and-ember-forge/Site-31-Archive/compare/site-31-archive-v0.1.3...site-31-archive-v0.1.4) (2026-11-20)
 
 
