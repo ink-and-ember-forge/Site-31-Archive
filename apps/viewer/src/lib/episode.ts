@@ -1,0 +1,107 @@
+import {
+  loadCasefile,
+  resolveStyle,
+  resolveTemplate,
+  zipSource,
+  type ArchiveIndex,
+  type ArchiveIndexEntry,
+  type Casefile,
+  type DocumentDef,
+  type Issue,
+  type Layout,
+  type PackageSource,
+  type Style,
+  type Template,
+  type Theme,
+} from '@archive/casefile';
+import { parseMarkdown, type MdBlock } from './markdown';
+
+const base = import.meta.env.BASE_URL;
+
+export type Content =
+  | { kind: 'markdown'; blocks: MdBlock[] }
+  | { kind: 'image'; url: string; alt: string }
+  | { kind: 'value'; value: string };
+
+export interface LoadedDoc {
+  id: string;
+  def: DocumentDef;
+  template: Template;
+  style: Style;
+  layout: Layout;
+  hidden: boolean;
+  content: Record<string, Content>;
+}
+
+export interface OpenEpisode {
+  casefile: Casefile;
+  docs: LoadedDoc[];
+  warnings: Issue[];
+  /** Release blob URLs created for images. */
+  dispose: () => void;
+}
+
+async function getJson<T>(path: string): Promise<T> {
+  const res = await fetch(`${base}${path}`);
+  if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+  return (await res.json()) as T;
+}
+
+export const loadIndex = () => getJson<ArchiveIndex>('archive/index.json');
+export const loadTheme = () => getJson<Theme>('archive/theme.json');
+
+const MIME: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+};
+
+async function readContent(source: PackageSource, def: DocumentDef, urls: string[]): Promise<Record<string, Content>> {
+  const content: Record<string, Content> = {};
+  for (const [name, slot] of Object.entries(def.slots)) {
+    if (slot.kind === 'value') content[name] = { kind: 'value', value: slot.value };
+    else if (slot.kind === 'markdown') {
+      const text = slot.text ?? (slot.file ? await source.readText(slot.file) : undefined) ?? '';
+      content[name] = { kind: 'markdown', blocks: parseMarkdown(text) };
+    } else {
+      const bytes = await source.readBytes(slot.file);
+      if (!bytes) continue;
+      const ext = slot.file.split('.').pop()?.toLowerCase() ?? '';
+      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: MIME[ext] ?? 'application/octet-stream' }));
+      urls.push(url);
+      content[name] = { kind: 'image', url, alt: slot.alt ?? '' };
+    }
+  }
+  return content;
+}
+
+export async function openEpisode(entry: ArchiveIndexEntry, theme: Theme): Promise<OpenEpisode> {
+  const res = await fetch(`${base}archive/${entry.file}`);
+  if (!res.ok) throw new Error(`${entry.file}: HTTP ${res.status}`);
+  const source = zipSource(new Uint8Array(await res.arrayBuffer()));
+  const result = await loadCasefile(source, { expectedId: entry.id });
+  if (!result.ok) throw new Error(result.errors.map((e) => `${e.path}: ${e.message}`).join('; '));
+
+  const { casefile } = result;
+  const urls: string[] = [];
+  const docs: LoadedDoc[] = [];
+  for (const item of casefile.manifest.documents) {
+    const def = casefile.documents.find((d) => d.id === item.id);
+    if (!def) continue; // dropped by the loader, which already warned
+    const template = resolveTemplate(def.template, casefile, theme);
+    docs.push({
+      id: def.id,
+      def,
+      template,
+      style: resolveStyle(def.style, template, casefile, theme),
+      layout: item.layout,
+      hidden: item.hidden === true,
+      content: await readContent(source, def, urls),
+    });
+  }
+  for (const w of result.warnings) console.warn(`${entry.id}/${w.path}: ${w.message}`);
+  return { casefile, docs, warnings: result.warnings, dispose: () => urls.forEach((u) => URL.revokeObjectURL(u)) };
+}

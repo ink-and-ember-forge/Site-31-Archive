@@ -81,7 +81,15 @@ First viewer is **functional first, art later**: simple CSS shapes that read as 
 look swappable through the theme. *Reason:* simple, scales as episodes accumulate and works on any screen;
 get behaviour in front of the author before investing in textures.
 
+## 2026-11-20: Minimal viewer (build step 3) built
+
+Folder wall grid, folder-opening animation, table with drag, wheel zoom and double-click focus (others
+move aside), and template-driven document rendering. Layout uses fractions of the table width, so a tall
+document can overflow the table height; the authoring tool should warn about this later. Hotspot spans are
+shown but inert, and hidden documents are not yet revealed: hotspots and the registry overlay are step 4.
+Content is parsed to data, never injected as HTML.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
-document types after the witness statement, house style. Next: the minimal viewer (build step 3).
+document types after the witness statement, house style. Next: the registry overlay (build step 4).

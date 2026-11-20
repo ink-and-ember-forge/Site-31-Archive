@@ -7,9 +7,9 @@
   "order": 0,
   "centralDocument": "statement",
   "documents": [
-    { "id": "statement", "layout": { "x": 0.3, "y": 0.1, "width": 0.4 } },
-    { "id": "receipt", "layout": { "x": 0.05, "y": 0.2, "width": 0.18, "rotation": -4 } },
-    { "id": "still", "layout": { "x": 0.75, "y": 0.15, "width": 0.22, "rotation": 3 } },
+    { "id": "statement", "layout": { "x": 0.33, "y": 0.04, "width": 0.32 } },
+    { "id": "receipt", "layout": { "x": 0.06, "y": 0.12, "width": 0.14, "rotation": -4 } },
+    { "id": "still", "layout": { "x": 0.72, "y": 0.18, "width": 0.22, "rotation": 3 } },
     { "id": "ticket", "hidden": true, "layout": { "x": 0.6, "y": 0.6, "width": 0.2 } }
   ]
 }
