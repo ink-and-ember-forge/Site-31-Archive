@@ -1,5 +1,6 @@
 // Usage: tsx src/cli.ts --episodes <dir> --theme <dir> --out <dir> [--samples | --samples-if-empty]
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { buildArchive } from './node';
 
 const args = process.argv.slice(2);
@@ -8,7 +9,7 @@ const flag = (name: string): string | undefined => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 
-const here = new URL('.', import.meta.url).pathname;
+const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../../..');
 const sample = resolve(here, '../fixtures/valid/sample-placeholder');
 const samples = args.includes('--samples') ? [sample] : [];

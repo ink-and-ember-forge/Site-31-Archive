@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, normalizePath, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
@@ -64,8 +64,12 @@ function archiveDev(): Plugin {
         }
       };
       server.watcher.add([episodesDir, themeDir]);
-      server.watcher.on('all', (_event, file) => {
-        const inScope = file.startsWith(episodesDir) || file.startsWith(themeDir);
+      // The watcher reports paths with forward slashes on every system, but resolve() gives backslashes on
+      // Windows, so compare normalised paths or nothing would rebuild there.
+      const watched = [normalizePath(episodesDir), normalizePath(themeDir)];
+      server.watcher.on('all', (_event, changed) => {
+        const file = normalizePath(changed);
+        const inScope = watched.some((dir) => file === dir || file.startsWith(`${dir}/`));
         if (!inScope || file.split('/').some((part) => part.startsWith('.'))) return;
         clearTimeout(timer);
         timer = setTimeout(() => void run(), 250); // saving several files at once rebuilds once
