@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.2](https://github.com/ink-and-ember-forge/Site-31-Archive/compare/site-31-archive-v0.1.1...site-31-archive-v0.1.2) (2026-11-20)
+
+
+### Features
+
+* **author:** authoring tool step 1, episode form with the real viewer beside it ([0b5a2b3](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/0b5a2b3ffdbe2d5431125801255d15e9a932e996))
+* **author:** authoring tool step 2, documents ([0ee538f](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/0ee538f36c3f71cfbd1198c8e96a9fe2f1d1b15e))
+* **author:** authoring tool steps 1 and 2, with writing guide and live preview ([d9a6245](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/d9a624535157032a0e3d1ade756a0a29a58369a9))
+* writing guide, validate command and live preview for authors ([7f17f1a](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/7f17f1a36af7b446b6a2f93a5fe343766401ff5e))
+
 ## [0.1.1](https://github.com/ink-and-ember-forge/Site-31-Archive/compare/site-31-archive-v0.1.0...site-31-archive-v0.1.1) (2026-11-20)
 
 
