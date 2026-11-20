@@ -34,7 +34,7 @@
 <div class="editor">
   <button class="back" onclick={onback}>← Episode</button>
   <h2>{doc.id}</h2>
-  <p class="kind">{doc.templateName}{#if doc.central} · main document{/if}{#if doc.hidden} · hidden{/if}</p>
+  <p class="kind">{doc.templateName}{#if doc.central}{' · main document'}{/if}{#if doc.hidden}{' · hidden'}{/if}</p>
 
   {#if !doc.readable}
     <p class="alert" role="alert">This document's file has a problem, so it cannot be edited here yet. See Problems, fix the file, then reopen the episode.</p>

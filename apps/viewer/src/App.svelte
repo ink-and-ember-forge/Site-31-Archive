@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import type { ArchiveIndexEntry, Theme } from '@archive/casefile';
   import { loadIndex, loadRegistryEntries, loadTheme, openEpisode, type OpenEpisode } from './lib/episode';
+  import { onAuthorCommand } from './lib/author';
   import { createRegistryResolver, type RegistryResolver } from './lib/registry';
   import Wall from './Wall.svelte';
   import Table from './Table.svelte';
@@ -33,7 +34,46 @@
     }
   }
 
+  // The authoring tool asks for this after every edit. The episode is loaded again and swapped in underneath the table,
+  // which keeps where everything is, so the author can see what an edit did. A broken episode keeps the last good view.
+  let reloading = false;
+  let reloadAgain = false;
+  async function reloadInPlace() {
+    if (!open) return;
+    if (reloading) {
+      reloadAgain = true;
+      return;
+    }
+    reloading = true;
+    try {
+      do {
+        reloadAgain = false;
+        const id: string | undefined = open?.entry.id;
+        if (!id) break;
+        try {
+          const [index, freshTheme] = await Promise.all([loadIndex(), loadTheme()]);
+          const entry: ArchiveIndexEntry | undefined = index.episodes.find((e) => e.id === id);
+          if (!entry) break;
+          const episode: OpenEpisode = await openEpisode(entry, freshTheme);
+          const previous = open?.episode;
+          episodes = index.episodes;
+          theme = freshTheme;
+          open = { entry, episode, resolver: createRegistryResolver(episodes, episode.casefile, loadRegistryEntries) };
+          await tick();
+          previous?.dispose(); // the old pictures are freed once the new ones are showing
+        } catch (e) {
+          console.warn('Preview not updated:', e instanceof Error ? e.message : e);
+        }
+      } while (reloadAgain);
+    } finally {
+      reloading = false;
+    }
+  }
+
   onMount(() => {
+    const stopCommands = onAuthorCommand((command) => {
+      if (command.type === 'reload') void reloadInPlace();
+    });
     (async () => {
       try {
         [{ episodes }, theme] = await Promise.all([loadIndex(), loadTheme()]);
@@ -46,7 +86,10 @@
     })();
     const onHash = () => void show(idFromHash());
     window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
+    return () => {
+      stopCommands();
+      window.removeEventListener('hashchange', onHash);
+    };
   });
 </script>
 
