@@ -1,6 +1,6 @@
 {
   "name": "site-31-archive",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Episodic digital anthology told through an archive: viewer, authoring tool and case file package format.",
   "workspaces": [
