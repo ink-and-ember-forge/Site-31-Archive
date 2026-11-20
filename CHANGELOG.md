@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/ink-and-ember-forge/Site-31-Archive/compare/site-31-archive-v0.1.0...site-31-archive-v0.1.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* **author:** make the installer build work on all platforms ([b8ec06b](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/b8ec06b587d07ec26f64b5289979ba918473f4d6))
+* **author:** make the installer build work on all platforms ([81283b9](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/81283b9267ac6a8c4c933811935624655198687f))
+
 ## 0.1.0 (2026-11-20)
 
 
