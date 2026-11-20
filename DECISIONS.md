@@ -125,6 +125,13 @@ paper and the dark table. This is an additive optional field, so the format vers
 schema are updated. Colours and the handwriting font stack are placeholders in the viewer and are to move
 into the shared theme (a real handwriting font is a theme asset). *Reason:* author feedback with design mocks.
 
+## 2026-11-20: First release is 0.1.0
+
+release-please proposed 1.0.0 for the first release even though it is configured to stay below 1.0 until
+the first stable release. The author wants 0.1.0, since the viewer and authoring tool are not finished. This
+is set with a one-time `Release-As: 0.1.0` commit footer, not a config setting, so it does not keep forcing
+the version on later releases. Move to 1.0.0 deliberately when the first real episode ships.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
