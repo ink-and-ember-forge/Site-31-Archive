@@ -17,6 +17,7 @@ jobs:
     outputs:
       release_created: ${{ steps.rp.outputs.release_created }}
       tag_name: ${{ steps.rp.outputs.tag_name }}
+      version: ${{ steps.rp.outputs.version }}
     steps:
       - id: rp
         uses: googleapis/release-please-action@v4
@@ -41,8 +42,11 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm run package -w @archive/author
+      # The app's own package.json version is not bumped by release-please, so pass the release version in.
+      - run: npm run package -w @archive/author -- "-c.extraMetadata.version=${VERSION}"
+        shell: bash
         env:
+          VERSION: ${{ needs.release-please.outputs.version }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false" # unsigned builds for now
       - name: Upload installers to the release
         shell: bash
