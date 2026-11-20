@@ -1,15 +1,44 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
-  import type { LoadedDoc } from './lib/episode';
+  import { onMount, tick, untrack } from 'svelte';
+  import type { Hotspot } from '@archive/casefile';
+  import type { LightboxContent, LoadedDoc } from './lib/episode';
+  import type { RegistryResolver } from './lib/registry';
   import DocumentView from './DocumentView.svelte';
+  import Lightbox from './Lightbox.svelte';
+  import Registry from './Registry.svelte';
 
-  let { title, date, docs, onback }: { title: string; date: string; docs: LoadedDoc[]; onback: () => void } = $props();
+  let { title, date, docs, resolver, onback }: {
+    title: string;
+    date: string;
+    docs: LoadedDoc[];
+    resolver: RegistryResolver;
+    onback: () => void;
+  } = $props();
 
-  interface State { x: number; y: number; zoom: number; z: number; entered: boolean }
-  // Hidden documents are revealed by hotspots, which come in a later build step.
-  const shown = untrack(() => docs.filter((d) => !d.hidden));
+  interface State {
+    x: number;
+    y: number;
+    zoom: number;
+    z: number;
+    entered: boolean;
+    /** Hidden documents only exist on the table once a hotspot reveals them. */
+    revealed: boolean;
+    /** Where the document starts from when it enters (percent of the table). */
+    fromLeft: number;
+    fromTop: number;
+  }
+
+  const all = untrack(() => docs);
+  const byId = Object.fromEntries(all.map((d) => [d.id, d]));
+  const opening = all.filter((d) => !d.hidden); // these come out of the folder in turn
+  const order = Object.fromEntries(opening.map((d, i) => [d.id, i]));
   let states = $state<Record<string, State>>(
-    Object.fromEntries(shown.map((d, i) => [d.id, { x: d.layout.x, y: d.layout.y, zoom: 1, z: i + 1, entered: false }])),
+    Object.fromEntries(
+      all.map((d, i) => [
+        d.id,
+        { x: d.layout.x, y: d.layout.y, zoom: 1, z: i + 1, entered: false, revealed: !d.hidden, fromLeft: 50, fromTop: 0 },
+      ]),
+    ),
   );
 
   let tw = $state(1000);
@@ -18,9 +47,12 @@
   let folderOpen = $state(false);
   let folderGone = $state(false);
   let settled = $state(false);
-  let topZ = shown.length + 1;
+  let topZ = all.length + 1;
   let dragging = $state<string | null>(null);
-  let drag: { id: string; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null = null;
+  let drag: { id: string; el: HTMLElement; pid: number; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null = null;
+
+  type Overlay = { type: 'lightbox'; content: LightboxContent } | { type: 'registry'; id: string };
+  let overlay = $state<Overlay | null>(null);
 
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -28,15 +60,20 @@
     const timers: number[] = [];
     if (reduced) {
       folderGone = settled = true;
-      shown.forEach((d) => (states[d.id].entered = true));
-      return;
+      opening.forEach((d) => (states[d.id].entered = true));
+    } else {
+      // The folder opens, then each document slides out onto the table in turn.
+      timers.push(window.setTimeout(() => (folderOpen = true), 150));
+      timers.push(window.setTimeout(() => opening.forEach((d) => (states[d.id].entered = true)), 800));
+      timers.push(window.setTimeout(() => (folderGone = true), 1400));
+      timers.push(window.setTimeout(() => (settled = true), 800 + opening.length * 180 + 800));
     }
-    // The folder opens, then each document slides out onto the table in turn.
-    timers.push(window.setTimeout(() => (folderOpen = true), 150));
-    timers.push(window.setTimeout(() => shown.forEach((d) => (states[d.id].entered = true)), 800));
-    timers.push(window.setTimeout(() => (folderGone = true), 1400));
-    timers.push(window.setTimeout(() => (settled = true), 800 + shown.length * 180 + 800));
-    const key = (e: KeyboardEvent) => e.key === 'Escape' && (focused = null);
+    // Esc closes an open overlay first, otherwise puts a focused document back.
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (overlay) overlay = null;
+      else focused = null;
+    };
     window.addEventListener('keydown', key);
     return () => {
       timers.forEach(clearTimeout);
@@ -49,8 +86,7 @@
   function down(e: PointerEvent, id: string) {
     if (focused && focused !== id) return;
     states[id].z = ++topZ;
-    drag = { id, sx: e.clientX, sy: e.clientY, ox: states[id].x, oy: states[id].y, moved: false };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag = { id, el: e.currentTarget as HTMLElement, pid: e.pointerId, sx: e.clientX, sy: e.clientY, ox: states[id].x, oy: states[id].y, moved: false };
   }
   function move(e: PointerEvent) {
     if (!drag || focused) return;
@@ -59,6 +95,8 @@
     if (!drag.moved && Math.hypot(dx, dy) > 4) {
       drag.moved = true;
       dragging = drag.id;
+      // Capture only once a real drag starts, so plain clicks still reach hotspots.
+      drag.el.setPointerCapture(drag.pid);
     }
     if (drag.moved) {
       states[drag.id].x = clamp(drag.ox + dx / tw, -0.2, 1);
@@ -78,13 +116,39 @@
     if (focused) states[id].z = ++topZ;
   }
 
-  function boxStyle(d: LoadedDoc, i: number): string {
+  /** A supplementary document slides onto the table from the document that mentioned it. */
+  async function reveal(targetId: string, sourceId: string) {
+    const target = states[targetId];
+    if (!target) return;
+    target.z = ++topZ;
+    if (target.revealed) return;
+    const src = states[sourceId];
+    target.fromLeft = (src.x + byId[sourceId].layout.width / 2) * 100;
+    target.fromTop = src.y * 100 + 8;
+    target.revealed = true;
+    if (reduced) {
+      target.entered = true;
+      return;
+    }
+    await tick();
+    requestAnimationFrame(() => requestAnimationFrame(() => (target.entered = true)));
+  }
+
+  function activate(sourceId: string, h: Hotspot) {
+    const t = h.target;
+    if (t.type === 'lightbox') {
+      const content = byId[sourceId].lightboxes[h.id];
+      if (content) overlay = { type: 'lightbox', content };
+    } else if (t.type === 'document') void reveal(t.document, sourceId);
+    else overlay = { type: 'registry', id: t.entry };
+  }
+
+  function boxStyle(d: LoadedDoc): string {
     const s = states[d.id];
-    const delay = settled ? 0 : i * 180;
+    const delay = settled ? 0 : (order[d.id] ?? 0) * 180;
     const base = `transition-delay:${delay}ms;z-index:${s.z};`;
     if (!s.entered) {
-      // Starting point: tucked into the folder at the top centre of the table.
-      return `${base}left:50%;top:0%;width:${d.layout.width * 100}%;transform:translate(-50%,0) scale(0.1);opacity:0;`;
+      return `${base}left:${s.fromLeft}%;top:${s.fromTop}%;width:${d.layout.width * 100}%;transform:translate(-50%,-50%) scale(0.1);opacity:0;`;
     }
     if (focused === d.id) {
       const aspect = d.template.aspect ?? 0.75;
@@ -122,28 +186,36 @@
       </div>
     {/if}
 
-    {#each shown as d, i (d.id)}
-      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-      <div
-        class="doc"
-        class:dragging={dragging === d.id}
-        class:aside={focused !== null && focused !== d.id}
-        style={boxStyle(d, i)}
-        onpointerdown={(e) => down(e, d.id)}
-        onpointermove={move}
-        onpointerup={up}
-        onpointercancel={up}
-        onwheel={(e) => wheel(e, d.id)}
-        ondblclick={() => toggleFocus(d.id)}
-        onclick={(e) => e.stopPropagation()}
-      >
-        <DocumentView doc={d} />
-      </div>
+    {#each all as d (d.id)}
+      {#if states[d.id].revealed}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <div
+          class="doc"
+          class:dragging={dragging === d.id}
+          class:aside={focused !== null && focused !== d.id}
+          style={boxStyle(d)}
+          onpointerdown={(e) => down(e, d.id)}
+          onpointermove={move}
+          onpointerup={up}
+          onpointercancel={up}
+          onwheel={(e) => wheel(e, d.id)}
+          ondblclick={() => toggleFocus(d.id)}
+          onclick={(e) => e.stopPropagation()}
+        >
+          <DocumentView doc={d} onhotspot={(h) => activate(d.id, h)} />
+        </div>
+      {/if}
     {/each}
 
-    <p class="hint">Drag to move · scroll to zoom · double-click to focus · Esc to put back</p>
+    <p class="hint">Drag to move · scroll to zoom · double-click to focus · click highlighted text to look closer · Esc to go back</p>
   </div>
 </div>
+
+{#if overlay?.type === 'lightbox'}
+  <Lightbox content={overlay.content} onclose={() => (overlay = null)} />
+{:else if overlay?.type === 'registry'}
+  <Registry startId={overlay.id} {resolver} onclose={() => (overlay = null)} />
+{/if}
 
 <style>
   .screen { display: flex; flex-direction: column; height: 100vh; }

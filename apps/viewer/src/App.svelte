@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { ArchiveIndexEntry, Theme } from '@archive/casefile';
-  import { loadIndex, loadTheme, openEpisode, type OpenEpisode } from './lib/episode';
+  import { loadIndex, loadRegistryEntries, loadTheme, openEpisode, type OpenEpisode } from './lib/episode';
+  import { createRegistryResolver, type RegistryResolver } from './lib/registry';
   import Wall from './Wall.svelte';
   import Table from './Table.svelte';
 
@@ -9,7 +10,7 @@
   let theme: Theme = { templates: {}, styles: {} };
   let status = $state<'loading' | 'ready' | 'error'>('loading');
   let error = $state('');
-  let open = $state<{ entry: ArchiveIndexEntry; episode: OpenEpisode } | null>(null);
+  let open = $state<{ entry: ArchiveIndexEntry; episode: OpenEpisode; resolver: RegistryResolver } | null>(null);
   let opening = $state(false);
 
   const idFromHash = () => decodeURIComponent(location.hash.replace(/^#\/?/, ''));
@@ -22,7 +23,8 @@
     if (!id || !entry) return;
     opening = true;
     try {
-      open = { entry, episode: await openEpisode(entry, theme) };
+      const episode = await openEpisode(entry, theme);
+      open = { entry, episode, resolver: createRegistryResolver(episodes, episode.casefile, loadRegistryEntries) };
     } catch (e) {
       error = `This case file could not be opened. ${e instanceof Error ? e.message : ''}`;
       location.hash = '';
@@ -58,6 +60,7 @@
       title={open.episode.casefile.manifest.title}
       date={open.episode.casefile.manifest.submissionDate}
       docs={open.episode.docs}
+      resolver={open.resolver}
       onback={() => (location.hash = '')}
     />
   {/key}

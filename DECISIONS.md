@@ -95,7 +95,17 @@ The production build falls back to the labelled `sample-placeholder` episode whe
 real episodes, so the deployed viewer can be tried. It disappears automatically when the first real
 episode is merged. *Reason:* the author wanted a live link to try the viewer.
 
+## 2026-11-20: Hotspots and registry overlay (build step 4) built
+
+All three hotspot targets work: light-box for marginal notes, supplementary documents slide onto the table
+from the document that mentions them, and the registry overlay. The overlay is a **search panel that "runs"
+the lookup** (query types out, short search beat, record appears). Entries are reached **only through
+hotspots and cross-references**, never free search. Cross-references to other episodes load that episode on
+demand; an unpublished episode or missing entry shows as a redacted "no record on file", never an error.
+Interface wording lives in `apps/viewer/src/lib/strings.ts` and is **placeholder**: the registry's voice is
+the author's to write.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
-document types after the witness statement, house style. Next: the registry overlay (build step 4).
+document types after the witness statement, house style. Next: the author writes episode one with the tools (build step 5); reader notes, voiceover and ledger tooling follow.

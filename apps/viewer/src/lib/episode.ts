@@ -10,6 +10,7 @@ import {
   type Issue,
   type Layout,
   type PackageSource,
+  type RegistryEntry,
   type Style,
   type Template,
   type Theme,
@@ -23,6 +24,11 @@ export type Content =
   | { kind: 'image'; url: string; alt: string }
   | { kind: 'value'; value: string };
 
+export interface LightboxContent {
+  title?: string;
+  blocks: MdBlock[];
+}
+
 export interface LoadedDoc {
   id: string;
   def: DocumentDef;
@@ -31,6 +37,8 @@ export interface LoadedDoc {
   layout: Layout;
   hidden: boolean;
   content: Record<string, Content>;
+  /** Light-box content by hotspot id. */
+  lightboxes: Record<string, LightboxContent>;
 }
 
 export interface OpenEpisode {
@@ -78,14 +86,32 @@ async function readContent(source: PackageSource, def: DocumentDef, urls: string
   return content;
 }
 
-export async function openEpisode(entry: ArchiveIndexEntry, theme: Theme): Promise<OpenEpisode> {
+async function fetchCasefile(entry: ArchiveIndexEntry) {
   const res = await fetch(`${base}archive/${entry.file}`);
   if (!res.ok) throw new Error(`${entry.file}: HTTP ${res.status}`);
   const source = zipSource(new Uint8Array(await res.arrayBuffer()));
   const result = await loadCasefile(source, { expectedId: entry.id });
   if (!result.ok) throw new Error(result.errors.map((e) => `${e.path}: ${e.message}`).join('; '));
+  return { source, casefile: result.casefile, warnings: result.warnings };
+}
 
-  const { casefile } = result;
+/** Registry entries of another episode, for cross-references. */
+export async function loadRegistryEntries(entry: ArchiveIndexEntry): Promise<RegistryEntry[]> {
+  return (await fetchCasefile(entry)).casefile.registry;
+}
+
+async function readLightboxes(source: PackageSource, def: DocumentDef): Promise<Record<string, LightboxContent>> {
+  const out: Record<string, LightboxContent> = {};
+  for (const h of def.hotspots) {
+    if (h.target.type !== 'lightbox') continue;
+    const text = h.target.text ?? (h.target.file ? await source.readText(h.target.file) : undefined) ?? '';
+    out[h.id] = { title: h.target.title, blocks: parseMarkdown(text) };
+  }
+  return out;
+}
+
+export async function openEpisode(entry: ArchiveIndexEntry, theme: Theme): Promise<OpenEpisode> {
+  const { source, casefile, warnings } = await fetchCasefile(entry);
   const urls: string[] = [];
   const docs: LoadedDoc[] = [];
   for (const item of casefile.manifest.documents) {
@@ -100,8 +126,9 @@ export async function openEpisode(entry: ArchiveIndexEntry, theme: Theme): Promi
       layout: item.layout,
       hidden: item.hidden === true,
       content: await readContent(source, def, urls),
+      lightboxes: await readLightboxes(source, def),
     });
   }
-  for (const w of result.warnings) console.warn(`${entry.id}/${w.path}: ${w.message}`);
-  return { casefile, docs, warnings: result.warnings, dispose: () => urls.forEach((u) => URL.revokeObjectURL(u)) };
+  for (const w of warnings) console.warn(`${entry.id}/${w.path}: ${w.message}`);
+  return { casefile, docs, warnings, dispose: () => urls.forEach((u) => URL.revokeObjectURL(u)) };
 }
