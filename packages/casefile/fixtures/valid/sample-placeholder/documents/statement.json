@@ -7,7 +7,7 @@
   },
   "hotspots": [
     { "id": "note-1", "anchor": { "type": "text", "slot": "body" },
-      "target": { "type": "lightbox", "title": "PLACEHOLDER note", "text": "PLACEHOLDER marginal note text." } },
+      "target": { "type": "lightbox", "variant": "formal", "title": "PLACEHOLDER formal note", "text": "PLACEHOLDER marginal note text." } },
     { "id": "ref-1", "anchor": { "type": "text", "slot": "body" },
       "target": { "type": "registry", "entry": "sample-placeholder/placeholder-entry-a" } },
     { "id": "ticket-1", "anchor": { "type": "text", "slot": "body" },

@@ -95,7 +95,44 @@ The production build falls back to the labelled `sample-placeholder` episode whe
 real episodes, so the deployed viewer can be tried. It disappears automatically when the first real
 episode is merged. *Reason:* the author wanted a live link to try the viewer.
 
+## 2026-11-20: Hotspots and registry overlay (build step 4) built
+
+All three hotspot targets work: light-box for marginal notes, supplementary documents slide onto the table
+from the document that mentions them, and the registry overlay. The overlay is a **search panel that "runs"
+the lookup** (query types out, short search beat, record appears). Entries are reached **only through
+hotspots and cross-references**, never free search. Cross-references to other episodes load that episode on
+demand; an unpublished episode or missing entry shows as a redacted "no record on file", never an error.
+Interface wording lives in `apps/viewer/src/lib/strings.ts` and is **placeholder**: the registry's voice is
+the author's to write.
+
+## 2026-11-20: Marginal notes are callouts, not an overlay
+
+Marginal notes (light-box targets) open as small callouts beside the document with a pointer to the
+highlighted words, with no dimming or blocking, replacing the full-screen light-box. Several can be open at
+once; clicking the words again, the close mark, or Esc (newest first) closes them. They travel with their
+document and keep a fixed readable size when it is zoomed. Notes go to the right of the document, or the left
+if there is no room, and stack rather than overlap. The registry stays a full-attention overlay because it is
+the archive answering back. *Reason:* the author wanted marginalia to feel lighter; mockup provided.
+Callout styling is placeholder and should move into the theme later.
+
+## 2026-11-20: Two marginal-note variants, replacing the single callout
+
+The first callout (card with a solid wedge) was judged bulky. Marginal notes now have an optional
+`variant` on the lightbox hotspot target: **formal** (default; slim dark glass card, typed voice, straight
+dotted string with a dot at each end) and **note** (handwritten straight onto the table with no box, with a
+curved pen line and arrow). Connectors have a light core with a dark glow so they read over both the cream
+paper and the dark table. This is an additive optional field, so the format version stays at 1; the spec and
+schema are updated. Colours and the handwriting font stack are placeholders in the viewer and are to move
+into the shared theme (a real handwriting font is a theme asset). *Reason:* author feedback with design mocks.
+
+## 2026-11-20: First release is 0.1.0
+
+release-please proposed 1.0.0 for the first release even though it is configured to stay below 1.0 until
+the first stable release. The author wants 0.1.0, since the viewer and authoring tool are not finished. This
+is set with a one-time `Release-As: 0.1.0` commit footer, not a config setting, so it does not keep forcing
+the version on later releases. Move to 1.0.0 deliberately when the first real episode ships.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
-document types after the witness statement, house style. Next: the registry overlay (build step 4).
+document types after the witness statement, house style. Next: the author writes episode one with the tools (build step 5); reader notes, voiceover and ledger tooling follow.

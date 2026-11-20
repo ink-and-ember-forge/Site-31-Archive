@@ -37,8 +37,11 @@ export type Anchor =
   | { type: 'text'; slot: string }
   | { type: 'rect'; x: number; y: number; width: number; height: number };
 
+/** How a marginal note looks: `formal` (typed, institutional) or `note` (handwritten). Defaults to `formal`. */
+export type NoteVariant = 'formal' | 'note';
+
 export type Target =
-  | { type: 'lightbox'; title?: string; text?: string; file?: string }
+  | { type: 'lightbox'; variant?: NoteVariant; title?: string; text?: string; file?: string }
   | { type: 'document'; document: string }
   | { type: 'registry'; entry: string };
 

@@ -3,26 +3,69 @@
   "$id": "hotspot.schema.json",
   "title": "Hotspot or marginalia, format v1",
   "type": "object",
-  "required": ["id", "anchor", "target"],
+  "required": [
+    "id",
+    "anchor",
+    "target"
+  ],
   "properties": {
-    "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
-    "label": { "type": "string" },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "label": {
+      "type": "string"
+    },
     "anchor": {
       "oneOf": [
         {
           "type": "object",
-          "required": ["type", "slot"],
-          "properties": { "type": { "const": "text" }, "slot": { "type": "string" } }
+          "required": [
+            "type",
+            "slot"
+          ],
+          "properties": {
+            "type": {
+              "const": "text"
+            },
+            "slot": {
+              "type": "string"
+            }
+          }
         },
         {
           "type": "object",
-          "required": ["type", "x", "y", "width", "height"],
+          "required": [
+            "type",
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
           "properties": {
-            "type": { "const": "rect" },
-            "x": { "type": "number", "minimum": 0, "maximum": 1 },
-            "y": { "type": "number", "minimum": 0, "maximum": 1 },
-            "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
-            "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+            "type": {
+              "const": "rect"
+            },
+            "x": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "y": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "width": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1
+            },
+            "height": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1
+            }
           }
         }
       ]
@@ -31,26 +74,71 @@
       "oneOf": [
         {
           "type": "object",
-          "required": ["type"],
+          "required": [
+            "type"
+          ],
           "properties": {
-            "type": { "const": "lightbox" },
-            "title": { "type": "string" },
-            "text": { "type": "string" },
-            "file": { "type": "string" }
+            "type": {
+              "const": "lightbox"
+            },
+            "title": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "file": {
+              "type": "string"
+            },
+            "variant": {
+              "enum": [
+                "formal",
+                "note"
+              ]
+            }
           },
-          "anyOf": [{ "required": ["text"] }, { "required": ["file"] }]
+          "anyOf": [
+            {
+              "required": [
+                "text"
+              ]
+            },
+            {
+              "required": [
+                "file"
+              ]
+            }
+          ]
         },
         {
           "type": "object",
-          "required": ["type", "document"],
-          "properties": { "type": { "const": "document" }, "document": { "type": "string" } }
-        },
-        {
-          "type": "object",
-          "required": ["type", "entry"],
+          "required": [
+            "type",
+            "document"
+          ],
           "properties": {
-            "type": { "const": "registry" },
-            "entry": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*/[a-z0-9]+(-[a-z0-9]+)*$" }
+            "type": {
+              "const": "document"
+            },
+            "document": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "entry"
+          ],
+          "properties": {
+            "type": {
+              "const": "registry"
+            },
+            "entry": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*/[a-z0-9]+(-[a-z0-9]+)*$"
+            }
           }
         }
       ]

@@ -1,15 +1,48 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
+  import type { Hotspot } from '@archive/casefile';
   import type { LoadedDoc } from './lib/episode';
+  import type { NoteVariant } from '@archive/casefile';
+  import type { MdBlock } from './lib/markdown';
+  import { placeNotes } from './lib/notes';
+  import { STRINGS } from './lib/strings';
+  import type { RegistryResolver } from './lib/registry';
   import DocumentView from './DocumentView.svelte';
+  import Rich from './Rich.svelte';
+  import Registry from './Registry.svelte';
 
-  let { title, date, docs, onback }: { title: string; date: string; docs: LoadedDoc[]; onback: () => void } = $props();
+  let { title, date, docs, resolver, onback }: {
+    title: string;
+    date: string;
+    docs: LoadedDoc[];
+    resolver: RegistryResolver;
+    onback: () => void;
+  } = $props();
 
-  interface State { x: number; y: number; zoom: number; z: number; entered: boolean }
-  // Hidden documents are revealed by hotspots, which come in a later build step.
-  const shown = untrack(() => docs.filter((d) => !d.hidden));
+  interface State {
+    x: number;
+    y: number;
+    zoom: number;
+    z: number;
+    entered: boolean;
+    /** Hidden documents only exist on the table once a hotspot reveals them. */
+    revealed: boolean;
+    /** Where the document starts from when it enters (percent of the table). */
+    fromLeft: number;
+    fromTop: number;
+  }
+
+  const all = untrack(() => docs);
+  const byId = Object.fromEntries(all.map((d) => [d.id, d]));
+  const opening = all.filter((d) => !d.hidden); // these come out of the folder in turn
+  const order = Object.fromEntries(opening.map((d, i) => [d.id, i]));
   let states = $state<Record<string, State>>(
-    Object.fromEntries(shown.map((d, i) => [d.id, { x: d.layout.x, y: d.layout.y, zoom: 1, z: i + 1, entered: false }])),
+    Object.fromEntries(
+      all.map((d, i) => [
+        d.id,
+        { x: d.layout.x, y: d.layout.y, zoom: 1, z: i + 1, entered: false, revealed: !d.hidden, fromLeft: 50, fromTop: 0 },
+      ]),
+    ),
   );
 
   let tw = $state(1000);
@@ -18,9 +51,16 @@
   let folderOpen = $state(false);
   let folderGone = $state(false);
   let settled = $state(false);
-  let topZ = shown.length + 1;
+  let topZ = all.length + 1;
   let dragging = $state<string | null>(null);
-  let drag: { id: string; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null = null;
+  let drag: { id: string; el: HTMLElement; pid: number; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null = null;
+
+  // The registry is a full-attention overlay; marginal notes are small callouts that stay on the table.
+  let registryId = $state<string | null>(null);
+  interface Note { key: string; docId: string; hotspotId: string; variant: NoteVariant; title?: string; blocks: MdBlock[] }
+  let notes = $state<Note[]>([]);
+  let tableEl: HTMLDivElement;
+  const openFor = (docId: string) => notes.filter((n) => n.docId === docId).map((n) => n.hotspotId);
 
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -28,15 +68,21 @@
     const timers: number[] = [];
     if (reduced) {
       folderGone = settled = true;
-      shown.forEach((d) => (states[d.id].entered = true));
-      return;
+      opening.forEach((d) => (states[d.id].entered = true));
+    } else {
+      // The folder opens, then each document slides out onto the table in turn.
+      timers.push(window.setTimeout(() => (folderOpen = true), 150));
+      timers.push(window.setTimeout(() => opening.forEach((d) => (states[d.id].entered = true)), 800));
+      timers.push(window.setTimeout(() => (folderGone = true), 1400));
+      timers.push(window.setTimeout(() => (settled = true), 800 + opening.length * 180 + 800));
     }
-    // The folder opens, then each document slides out onto the table in turn.
-    timers.push(window.setTimeout(() => (folderOpen = true), 150));
-    timers.push(window.setTimeout(() => shown.forEach((d) => (states[d.id].entered = true)), 800));
-    timers.push(window.setTimeout(() => (folderGone = true), 1400));
-    timers.push(window.setTimeout(() => (settled = true), 800 + shown.length * 180 + 800));
-    const key = (e: KeyboardEvent) => e.key === 'Escape' && (focused = null);
+    // Esc closes the registry first, then the newest note, then puts a focused document back.
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (registryId) registryId = null;
+      else if (notes.length > 0) notes = notes.slice(0, -1);
+      else focused = null;
+    };
     window.addEventListener('keydown', key);
     return () => {
       timers.forEach(clearTimeout);
@@ -49,8 +95,7 @@
   function down(e: PointerEvent, id: string) {
     if (focused && focused !== id) return;
     states[id].z = ++topZ;
-    drag = { id, sx: e.clientX, sy: e.clientY, ox: states[id].x, oy: states[id].y, moved: false };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag = { id, el: e.currentTarget as HTMLElement, pid: e.pointerId, sx: e.clientX, sy: e.clientY, ox: states[id].x, oy: states[id].y, moved: false };
   }
   function move(e: PointerEvent) {
     if (!drag || focused) return;
@@ -59,6 +104,8 @@
     if (!drag.moved && Math.hypot(dx, dy) > 4) {
       drag.moved = true;
       dragging = drag.id;
+      // Capture only once a real drag starts, so plain clicks still reach hotspots.
+      drag.el.setPointerCapture(drag.pid);
     }
     if (drag.moved) {
       states[drag.id].x = clamp(drag.ox + dx / tw, -0.2, 1);
@@ -78,18 +125,117 @@
     if (focused) states[id].z = ++topZ;
   }
 
-  function boxStyle(d: LoadedDoc, i: number): string {
+  /** A supplementary document slides onto the table from the document that mentioned it. */
+  async function reveal(targetId: string, sourceId: string) {
+    const target = states[targetId];
+    if (!target) return;
+    target.z = ++topZ;
+    if (target.revealed) return;
+    const src = states[sourceId];
+    target.fromLeft = (src.x + byId[sourceId].layout.width / 2) * 100;
+    target.fromTop = src.y * 100 + 8;
+    target.revealed = true;
+    if (reduced) {
+      target.entered = true;
+      return;
+    }
+    await tick();
+    requestAnimationFrame(() => requestAnimationFrame(() => (target.entered = true)));
+  }
+
+  function activate(sourceId: string, h: Hotspot) {
+    const t = h.target;
+    if (t.type === 'lightbox') toggleNote(sourceId, h.id);
+    else if (t.type === 'document') void reveal(t.document, sourceId);
+    else registryId = t.entry;
+  }
+
+  function toggleNote(docId: string, hotspotId: string) {
+    const key = `${docId}:${hotspotId}`;
+    if (notes.some((n) => n.key === key)) {
+      notes = notes.filter((n) => n.key !== key);
+      return;
+    }
+    const content = byId[docId].lightboxes[hotspotId];
+    if (content) notes = [...notes, { key, docId, hotspotId, variant: content.variant, title: content.title, blocks: content.blocks }];
+  }
+
+  // While notes are open, keep each one beside its document and pointing at its words,
+  // however the document is dragged, zoomed or moved aside. Positions are written straight
+  // to the elements each frame, so dragging stays smooth.
+  $effect(() => {
+    if (notes.length === 0) return;
+    let frame = 0;
+    const tick = () => {
+      layoutNotes();
+      frame = requestAnimationFrame(tick);
+    };
+    tick();
+    return () => cancelAnimationFrame(frame);
+  });
+
+  /** Formal notes get a straight dotted string with a dot at each end; handwritten notes a curved pen line with an arrow. */
+  function drawLeader(g: SVGGElement, variant: NoteVariant, pl: ReturnType<typeof placeNotes>[number]) {
+    const line = g.querySelector('.line')!;
+    if (variant === 'formal') {
+      line.setAttribute('d', `M ${pl.ax} ${pl.ay} L ${pl.bx} ${pl.by}`);
+      for (const [cls, x, y] of [['.dot-a', pl.ax, pl.ay], ['.dot-b', pl.bx, pl.by]] as const) {
+        const dot = g.querySelector(cls)!;
+        dot.setAttribute('cx', String(x));
+        dot.setAttribute('cy', String(y));
+      }
+    } else {
+      const dir = pl.bx >= pl.ax ? 1 : -1;
+      const ex = pl.bx - dir * 6; // stop just short of the handwriting
+      const reach = Math.max(30, Math.abs(ex - pl.ax) / 2);
+      line.setAttribute('d', `M ${pl.ax} ${pl.ay} C ${pl.ax + dir * reach} ${pl.ay - 6}, ${ex - dir * reach} ${pl.by + 6}, ${ex} ${pl.by}`);
+      g.querySelector('.head')!.setAttribute('d', `M ${ex - dir * 7} ${pl.by - 4} L ${ex} ${pl.by} L ${ex - dir * 7} ${pl.by + 4}`);
+    }
+  }
+
+  function layoutNotes() {
+    if (!tableEl) return;
+    const t = tableEl.getBoundingClientRect();
+    const parts = notes.flatMap((n) => {
+      const el = tableEl.querySelector<HTMLElement>(`[data-note="${n.key}"]`);
+      const leader = tableEl.querySelector<SVGGElement>(`[data-leader="${n.key}"]`);
+      const docEl = tableEl.querySelector<HTMLElement>(`[data-doc="${n.docId}"]`);
+      const anchor = docEl?.querySelector<HTMLElement>(`[data-hs="${n.hotspotId}"]`);
+      const rects = anchor?.getClientRects();
+      if (!el || !leader || !docEl || !rects || rects.length === 0) return [];
+      const first = rects[0];
+      const last = rects[rects.length - 1];
+      const d = docEl.getBoundingClientRect();
+      return [{ n, el, leader, input: {
+        key: n.key,
+        anchor: { left: first.left - t.left, right: last.right - t.left, y: last.top + last.height / 2 - t.top },
+        doc: { left: d.left - t.left, right: d.right - t.left },
+        height: el.offsetHeight,
+        width: n.variant === 'note' ? 210 : 200,
+      } }];
+    });
+    const placed = placeNotes(parts.map((p) => p.input), { width: t.width, height: t.height });
+    parts.forEach((p, i) => {
+      const pl = placed[i];
+      p.el.style.visibility = pl.hidden ? 'hidden' : 'visible';
+      p.el.style.width = `${pl.width}px`;
+      p.el.style.transform = `translate(${pl.x}px, ${pl.y}px)` + (p.n.variant === 'note' ? ' rotate(-1.2deg)' : '');
+      drawLeader(p.leader, p.n.variant, pl);
+      p.leader.style.visibility = pl.hidden ? 'hidden' : 'visible';
+    });
+  }
+
+  function boxStyle(d: LoadedDoc): string {
     const s = states[d.id];
-    const delay = settled ? 0 : i * 180;
+    const delay = settled ? 0 : (order[d.id] ?? 0) * 180;
     const base = `transition-delay:${delay}ms;z-index:${s.z};`;
     if (!s.entered) {
-      // Starting point: tucked into the folder at the top centre of the table.
-      return `${base}left:50%;top:0%;width:${d.layout.width * 100}%;transform:translate(-50%,0) scale(0.1);opacity:0;`;
+      return `${base}left:${s.fromLeft}%;top:${s.fromTop}%;width:${d.layout.width * 100}%;transform:translate(-50%,-50%) scale(0.1);opacity:0;`;
     }
     if (focused === d.id) {
       const aspect = d.template.aspect ?? 0.75;
       const widthPx = Math.min(0.88 * th * aspect, 0.8 * tw);
-      return `${base}left:50%;top:50%;width:${(widthPx / tw) * 100}%;transform:translate(-50%,-50%) scale(${s.zoom});z-index:1000;`;
+      return `${base}left:50%;top:50%;width:${(widthPx / tw) * 100}%;transform:translate(-50%,-50%) scale(${s.zoom});z-index:100000;`;
     }
     let tx = 0;
     let opacity = 1;
@@ -114,7 +260,7 @@
   </header>
 
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-  <div class="table" bind:clientWidth={tw} bind:clientHeight={th} onclick={() => (focused = null)}>
+  <div class="table" bind:this={tableEl} bind:clientWidth={tw} bind:clientHeight={th} onclick={() => (focused = null)}>
     {#if !folderGone}
       <div class="folder-open" class:open={folderOpen} aria-hidden="true">
         <div class="back"></div>
@@ -122,28 +268,59 @@
       </div>
     {/if}
 
-    {#each shown as d, i (d.id)}
-      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-      <div
-        class="doc"
-        class:dragging={dragging === d.id}
-        class:aside={focused !== null && focused !== d.id}
-        style={boxStyle(d, i)}
-        onpointerdown={(e) => down(e, d.id)}
-        onpointermove={move}
-        onpointerup={up}
-        onpointercancel={up}
-        onwheel={(e) => wheel(e, d.id)}
-        ondblclick={() => toggleFocus(d.id)}
-        onclick={(e) => e.stopPropagation()}
-      >
-        <DocumentView doc={d} />
-      </div>
+    {#each all as d (d.id)}
+      {#if states[d.id].revealed}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <div
+          class="doc"
+          data-doc={d.id}
+          class:dragging={dragging === d.id}
+          class:aside={focused !== null && focused !== d.id}
+          style={boxStyle(d)}
+          onpointerdown={(e) => down(e, d.id)}
+          onpointermove={move}
+          onpointerup={up}
+          onpointercancel={up}
+          onwheel={(e) => wheel(e, d.id)}
+          ondblclick={() => toggleFocus(d.id)}
+          onclick={(e) => e.stopPropagation()}
+        >
+          <DocumentView doc={d} openNotes={openFor(d.id)} onhotspot={(h) => activate(d.id, h)} />
+        </div>
+      {/if}
     {/each}
 
-    <p class="hint">Drag to move · scroll to zoom · double-click to focus · Esc to put back</p>
+    <svg class="leaders" aria-hidden="true">
+      {#each notes as n (n.key)}
+        <g data-leader={n.key} class="leader {n.variant}">
+          <path class="line" />
+          {#if n.variant === 'formal'}<circle class="dot-a" r="3" /><circle class="dot-b" r="3" />{:else}<path class="head" />{/if}
+        </g>
+      {/each}
+    </svg>
+    {#each notes as n (n.key)}
+      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+      <aside
+        class="callout {n.variant}"
+        class:aside={focused !== null && focused !== n.docId}
+        role="note"
+        aria-label={n.title ?? STRINGS.noteTitle}
+        data-note={n.key}
+        onclick={(e) => e.stopPropagation()}
+      >
+        <button type="button" class="x" aria-label={STRINGS.close} onclick={() => toggleNote(n.docId, n.hotspotId)}>×</button>
+        {#if n.title}<p class="note-title">{n.title}</p>{/if}
+        <Rich blocks={n.blocks} />
+      </aside>
+    {/each}
+
+    <p class="hint">Drag to move · scroll to zoom · double-click to focus · click highlighted text for notes · Esc to go back</p>
   </div>
 </div>
+
+{#if registryId}
+  <Registry startId={registryId} {resolver} onclose={() => (registryId = null)} />
+{/if}
 
 <style>
   .screen { display: flex; flex-direction: column; height: 100vh; }
@@ -158,11 +335,37 @@
          transition: left 0.7s ease, top 0.7s ease, width 0.6s ease, transform 0.7s ease, opacity 0.5s ease; }
   .doc.dragging { cursor: grabbing; transition: none; }
   .doc.aside { pointer-events: none; }
+  .leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 200000; overflow: visible; }
+  /* Connectors have a light core with a dark glow (formal) or a pale-ink core with a dark glow (note),
+     so they read over both the cream paper and the dark table. Placeholder colours: to move into the theme. */
+  .leader { fill: none; filter: drop-shadow(0 0 0.6px rgba(0, 0, 0, 1)) drop-shadow(0 1px 0.8px rgba(0, 0, 0, 0.7)); }
+  .leader.formal .line { stroke: #f6e08e; stroke-width: 2.4; stroke-dasharray: 0.1 6; stroke-linecap: round; }
+  .leader.formal circle { fill: #f3dc8a; }
+  .leader.note .line, .leader.note .head { stroke: #d6e0ff; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+  .callout { position: absolute; left: 0; top: 0; z-index: 200001; box-sizing: border-box; max-height: 45%; overflow: auto; animation: note-in 0.25s ease both; }
+  .callout.aside { opacity: 0.35; pointer-events: none; }
+  .callout :global(p) { margin: 0 0 0.4em; }
+  .callout :global(p:last-child) { margin-bottom: 0; }
+  .note-title { font-weight: bold; }
+  .x { position: absolute; top: 1px; right: 3px; font: inherit; font-size: 1rem; line-height: 1; cursor: pointer; border: 0; background: transparent; color: inherit; opacity: 0.45; padding: 0 0.2rem; }
+  .x:hover, .x:focus-visible { opacity: 1; }
+  .x:focus-visible { outline: 2px solid #1d4ed8; }
+
+  /* Formal: slim dark glass card, typed voice. */
+  .callout.formal { padding: 0.4rem 1.3rem 0.45rem 0.7rem; background: rgba(18, 14, 10, 0.86); color: #eadfc6; font: 0.78rem/1.4 Georgia, serif;
+                 border: 1px solid rgba(234, 223, 198, 0.28); border-radius: 3px; backdrop-filter: blur(2px); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); }
+  .callout.formal .note-title { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.75; }
+
+  /* Note: handwritten straight onto the table, no box. A dark halo keeps it legible over paper. */
+  .callout.note { padding: 0 1.1rem 0 0.2rem; color: #e1e8ff; font: 0.95rem/1.3 'Segoe Script', 'Bradley Hand', 'Comic Sans MS', cursive; transform-origin: left top;
+               text-shadow: 0 0 1px #000, 0 0 3px rgba(0, 0, 0, 0.85), 0 1px 1px #000; overflow: visible; }
+  @keyframes note-in { from { opacity: 0; } to { opacity: 1; } }
   .hint { position: absolute; bottom: 0.6rem; width: 100%; text-align: center; margin: 0; font-size: 0.8rem; color: #b8a98f; pointer-events: none; }
 
   .folder-open { position: absolute; left: 50%; top: 0; width: 14rem; height: 10rem; transform: translateX(-50%); perspective: 800px; transition: opacity 0.4s ease; }
   .back { position: absolute; inset: 0; background: #cda658; border-radius: 0.4rem; }
   .flap { position: absolute; inset: 0; background: linear-gradient(#e8c981, #dcb86b); border-radius: 0.4rem; transform-origin: top; transition: transform 0.6s ease; }
   .open .flap { transform: rotateX(-160deg); }
-  @media (prefers-reduced-motion: reduce) { .doc, .flap { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .doc, .flap { transition: none; } .callout { animation: none; } }
 </style>
