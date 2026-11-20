@@ -105,6 +105,16 @@ demand; an unpublished episode or missing entry shows as a redacted "no record o
 Interface wording lives in `apps/viewer/src/lib/strings.ts` and is **placeholder**: the registry's voice is
 the author's to write.
 
+## 2026-11-20: Marginal notes are callouts, not an overlay
+
+Marginal notes (light-box targets) open as small callouts beside the document with a pointer to the
+highlighted words, with no dimming or blocking, replacing the full-screen light-box. Several can be open at
+once; clicking the words again, the close mark, or Esc (newest first) closes them. They travel with their
+document and keep a fixed readable size when it is zoomed. Notes go to the right of the document, or the left
+if there is no room, and stack rather than overlap. The registry stays a full-attention overlay because it is
+the archive answering back. *Reason:* the author wanted marginalia to feel lighter; mockup provided.
+Callout styling is placeholder and should move into the theme later.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,

@@ -7,7 +7,7 @@
   import Block from './Block.svelte';
   import Rich from './Rich.svelte';
 
-  let { doc, onhotspot }: { doc: LoadedDoc; onhotspot: (h: Hotspot) => void } = $props();
+  let { doc, openNotes, onhotspot }: { doc: LoadedDoc; openNotes: string[]; onhotspot: (h: Hotspot) => void } = $props();
 
   const tokens = $derived(doc.style.tokens);
   // Sizes are in container-query units so a document looks identical at any zoom.
@@ -24,7 +24,10 @@
   const rects = $derived(doc.def.hotspots.filter((h) => h.anchor.type === 'rect'));
 
   // Text spans find their hotspot through context; rectangle hotspots are drawn below.
+  const isNote = (id: string) => doc.def.hotspots.some((h) => h.id === id && h.target.type === 'lightbox');
+
   setContext(HOTSPOTS, {
+    expanded: (id: string) => (isNote(id) ? openNotes.includes(id) : undefined),
     has: (id: string) => doc.def.hotspots.some((h) => h.id === id && h.anchor.type === 'text'),
     activate: (id: string) => {
       const h = doc.def.hotspots.find((x) => x.id === id);
@@ -50,6 +53,8 @@
       <button
         type="button"
         class="rect"
+        data-hs={h.id}
+        aria-expanded={isNote(h.id) ? openNotes.includes(h.id) : undefined}
         aria-label={h.label ?? STRINGS.noteTitle}
         style="left:{h.anchor.x * 100}%;top:{h.anchor.y * 100}%;width:{h.anchor.width * 100}%;height:{h.anchor.height * 100}%"
         onclick={() => onhotspot(h)}

@@ -1,10 +1,13 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
   import type { Hotspot } from '@archive/casefile';
-  import type { LightboxContent, LoadedDoc } from './lib/episode';
+  import type { LoadedDoc } from './lib/episode';
+  import type { MdBlock } from './lib/markdown';
+  import { placeNotes } from './lib/notes';
+  import { STRINGS } from './lib/strings';
   import type { RegistryResolver } from './lib/registry';
   import DocumentView from './DocumentView.svelte';
-  import Lightbox from './Lightbox.svelte';
+  import Rich from './Rich.svelte';
   import Registry from './Registry.svelte';
 
   let { title, date, docs, resolver, onback }: {
@@ -51,8 +54,12 @@
   let dragging = $state<string | null>(null);
   let drag: { id: string; el: HTMLElement; pid: number; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null = null;
 
-  type Overlay = { type: 'lightbox'; content: LightboxContent } | { type: 'registry'; id: string };
-  let overlay = $state<Overlay | null>(null);
+  // The registry is a full-attention overlay; marginal notes are small callouts that stay on the table.
+  let registryId = $state<string | null>(null);
+  interface Note { key: string; docId: string; hotspotId: string; title?: string; blocks: MdBlock[] }
+  let notes = $state<Note[]>([]);
+  let tableEl: HTMLDivElement;
+  const openFor = (docId: string) => notes.filter((n) => n.docId === docId).map((n) => n.hotspotId);
 
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -68,10 +75,11 @@
       timers.push(window.setTimeout(() => (folderGone = true), 1400));
       timers.push(window.setTimeout(() => (settled = true), 800 + opening.length * 180 + 800));
     }
-    // Esc closes an open overlay first, otherwise puts a focused document back.
+    // Esc closes the registry first, then the newest note, then puts a focused document back.
     const key = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      if (overlay) overlay = null;
+      if (registryId) registryId = null;
+      else if (notes.length > 0) notes = notes.slice(0, -1);
       else focused = null;
     };
     window.addEventListener('keydown', key);
@@ -136,11 +144,64 @@
 
   function activate(sourceId: string, h: Hotspot) {
     const t = h.target;
-    if (t.type === 'lightbox') {
-      const content = byId[sourceId].lightboxes[h.id];
-      if (content) overlay = { type: 'lightbox', content };
-    } else if (t.type === 'document') void reveal(t.document, sourceId);
-    else overlay = { type: 'registry', id: t.entry };
+    if (t.type === 'lightbox') toggleNote(sourceId, h.id);
+    else if (t.type === 'document') void reveal(t.document, sourceId);
+    else registryId = t.entry;
+  }
+
+  function toggleNote(docId: string, hotspotId: string) {
+    const key = `${docId}:${hotspotId}`;
+    if (notes.some((n) => n.key === key)) {
+      notes = notes.filter((n) => n.key !== key);
+      return;
+    }
+    const content = byId[docId].lightboxes[hotspotId];
+    if (content) notes = [...notes, { key, docId, hotspotId, title: content.title, blocks: content.blocks }];
+  }
+
+  // While notes are open, keep each one beside its document and pointing at its words,
+  // however the document is dragged, zoomed or moved aside. Positions are written straight
+  // to the elements each frame, so dragging stays smooth.
+  $effect(() => {
+    if (notes.length === 0) return;
+    let frame = 0;
+    const tick = () => {
+      layoutNotes();
+      frame = requestAnimationFrame(tick);
+    };
+    tick();
+    return () => cancelAnimationFrame(frame);
+  });
+
+  function layoutNotes() {
+    if (!tableEl) return;
+    const t = tableEl.getBoundingClientRect();
+    const parts = notes.flatMap((n) => {
+      const el = tableEl.querySelector<HTMLElement>(`[data-note="${n.key}"]`);
+      const leader = tableEl.querySelector<SVGPolygonElement>(`[data-leader="${n.key}"]`);
+      const docEl = tableEl.querySelector<HTMLElement>(`[data-doc="${n.docId}"]`);
+      const anchor = docEl?.querySelector<HTMLElement>(`[data-hs="${n.hotspotId}"]`);
+      const rects = anchor?.getClientRects();
+      if (!el || !leader || !docEl || !rects || rects.length === 0) return [];
+      const first = rects[0];
+      const last = rects[rects.length - 1];
+      const d = docEl.getBoundingClientRect();
+      return [{ n, el, leader, input: {
+        key: n.key,
+        anchor: { left: first.left - t.left, right: last.right - t.left, y: last.top + last.height / 2 - t.top },
+        doc: { left: d.left - t.left, right: d.right - t.left },
+        height: el.offsetHeight,
+      } }];
+    });
+    const placed = placeNotes(parts.map((p) => p.input), { width: t.width, height: t.height });
+    parts.forEach((p, i) => {
+      const pl = placed[i];
+      p.el.style.visibility = pl.hidden ? 'hidden' : 'visible';
+      p.el.style.width = `${pl.width}px`;
+      p.el.style.transform = `translate(${pl.x}px, ${pl.y}px)`;
+      p.leader.setAttribute('points', `${pl.ax},${pl.ay} ${pl.bx},${pl.by1} ${pl.bx},${pl.by2}`);
+      p.leader.style.visibility = pl.hidden ? 'hidden' : 'visible';
+    });
   }
 
   function boxStyle(d: LoadedDoc): string {
@@ -153,7 +214,7 @@
     if (focused === d.id) {
       const aspect = d.template.aspect ?? 0.75;
       const widthPx = Math.min(0.88 * th * aspect, 0.8 * tw);
-      return `${base}left:50%;top:50%;width:${(widthPx / tw) * 100}%;transform:translate(-50%,-50%) scale(${s.zoom});z-index:1000;`;
+      return `${base}left:50%;top:50%;width:${(widthPx / tw) * 100}%;transform:translate(-50%,-50%) scale(${s.zoom});z-index:100000;`;
     }
     let tx = 0;
     let opacity = 1;
@@ -178,7 +239,7 @@
   </header>
 
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-  <div class="table" bind:clientWidth={tw} bind:clientHeight={th} onclick={() => (focused = null)}>
+  <div class="table" bind:this={tableEl} bind:clientWidth={tw} bind:clientHeight={th} onclick={() => (focused = null)}>
     {#if !folderGone}
       <div class="folder-open" class:open={folderOpen} aria-hidden="true">
         <div class="back"></div>
@@ -191,6 +252,7 @@
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
         <div
           class="doc"
+          data-doc={d.id}
           class:dragging={dragging === d.id}
           class:aside={focused !== null && focused !== d.id}
           style={boxStyle(d)}
@@ -202,19 +264,38 @@
           ondblclick={() => toggleFocus(d.id)}
           onclick={(e) => e.stopPropagation()}
         >
-          <DocumentView doc={d} onhotspot={(h) => activate(d.id, h)} />
+          <DocumentView doc={d} openNotes={openFor(d.id)} onhotspot={(h) => activate(d.id, h)} />
         </div>
       {/if}
     {/each}
 
-    <p class="hint">Drag to move · scroll to zoom · double-click to focus · click highlighted text to look closer · Esc to go back</p>
+    <svg class="leaders" aria-hidden="true">
+      {#each notes as n (n.key)}<polygon data-leader={n.key} />{/each}
+    </svg>
+    {#each notes as n (n.key)}
+      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+      <aside
+        class="note"
+        class:aside={focused !== null && focused !== n.docId}
+        role="note"
+        aria-label={n.title ?? STRINGS.noteTitle}
+        data-note={n.key}
+        onclick={(e) => e.stopPropagation()}
+      >
+        <div class="note-head">
+          <strong>{n.title ?? STRINGS.noteTitle}</strong>
+          <button type="button" aria-label={STRINGS.close} onclick={() => toggleNote(n.docId, n.hotspotId)}>×</button>
+        </div>
+        <Rich blocks={n.blocks} />
+      </aside>
+    {/each}
+
+    <p class="hint">Drag to move · scroll to zoom · double-click to focus · click highlighted text for notes · Esc to go back</p>
   </div>
 </div>
 
-{#if overlay?.type === 'lightbox'}
-  <Lightbox content={overlay.content} onclose={() => (overlay = null)} />
-{:else if overlay?.type === 'registry'}
-  <Registry startId={overlay.id} {resolver} onclose={() => (overlay = null)} />
+{#if registryId}
+  <Registry startId={registryId} {resolver} onclose={() => (registryId = null)} />
 {/if}
 
 <style>
@@ -230,11 +311,21 @@
          transition: left 0.7s ease, top 0.7s ease, width 0.6s ease, transform 0.7s ease, opacity 0.5s ease; }
   .doc.dragging { cursor: grabbing; transition: none; }
   .doc.aside { pointer-events: none; }
+  .leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 200000; overflow: visible; }
+  .leaders polygon { fill: #fffdf5; stroke: #2b2118; stroke-width: 2; stroke-linejoin: round; }
+  .note { position: absolute; left: 0; top: 0; z-index: 200001; box-sizing: border-box; max-height: 45%; overflow: auto;
+          background: #fffdf5; color: #2b2118; border: 3px solid #2b2118; padding: 0.5rem 0.75rem; font-size: 0.9rem; font-family: Georgia, serif;
+          box-shadow: 0 0.3rem 1rem rgba(0, 0, 0, 0.45); animation: note-in 0.25s ease both; }
+  .note.aside { opacity: 0.35; pointer-events: none; }
+  .note-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-bottom: 0.3rem; }
+  .note button { font: inherit; line-height: 1; cursor: pointer; border: 0; background: transparent; color: inherit; padding: 0 0.2rem; font-size: 1.2rem; }
+  .note button:focus-visible { outline: 2px solid #1d4ed8; }
+  @keyframes note-in { from { opacity: 0; } to { opacity: 1; } }
   .hint { position: absolute; bottom: 0.6rem; width: 100%; text-align: center; margin: 0; font-size: 0.8rem; color: #b8a98f; pointer-events: none; }
 
   .folder-open { position: absolute; left: 50%; top: 0; width: 14rem; height: 10rem; transform: translateX(-50%); perspective: 800px; transition: opacity 0.4s ease; }
   .back { position: absolute; inset: 0; background: #cda658; border-radius: 0.4rem; }
   .flap { position: absolute; inset: 0; background: linear-gradient(#e8c981, #dcb86b); border-radius: 0.4rem; transform-origin: top; transition: transform 0.6s ease; }
   .open .flap { transform: rotateX(-160deg); }
-  @media (prefers-reduced-motion: reduce) { .doc, .flap { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .doc, .flap { transition: none; } .note { animation: none; } }
 </style>

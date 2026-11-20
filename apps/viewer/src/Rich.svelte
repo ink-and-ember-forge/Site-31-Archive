@@ -12,7 +12,12 @@
   {#each parts as part}
     {#if part.t === 'span'}
       {#if hotspots?.has(part.id)}
-        <button type="button" class="hotspot" onclick={() => hotspots.activate(part.id)}>{part.text}</button>
+        <button
+          type="button"
+          class="hotspot"
+          data-hs={part.id}
+          aria-expanded={hotspots.expanded(part.id)}
+          onclick={() => hotspots.activate(part.id)}>{part.text}</button>
       {:else}
         <mark class="plain">{part.text}</mark>
       {/if}
