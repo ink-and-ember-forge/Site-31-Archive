@@ -74,6 +74,13 @@ while implementing, all recorded in the spec: documents hidden at the start use 
 manifest (replacing the unused `appearsWhen`); unknown extra fields are ignored so additive changes are
 non-breaking; unsafe paths are treated as missing. The sample episode and starter theme are placeholders.
 
+## 2026-11-20: Viewer step 3 direction
+
+Folder wall is a **grid of upright Manila folders**, ordered by manifest `order` then submission date.
+First viewer is **functional first, art later**: simple CSS shapes that read as folders and paper, with the
+look swappable through the theme. *Reason:* simple, scales as episodes accumulate and works on any screen;
+get behaviour in front of the author before investing in textures.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
