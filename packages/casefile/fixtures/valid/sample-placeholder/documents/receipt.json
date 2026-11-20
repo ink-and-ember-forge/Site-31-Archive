@@ -3,8 +3,22 @@
   "role": "supporting",
   "slots": {
     "store": { "kind": "value", "value": "PLACEHOLDER STORE" },
-    "items": { "kind": "markdown", "text": "| Item | Price |\n| --- | --- |\n| PLACEHOLDER ITEM | 0.00 |" },
-    "total": { "kind": "value", "value": "0.00" }
+    "address": { "kind": "markdown", "text": "1 Placeholder Street\nTel 000 0000" },
+    "date": { "kind": "value", "value": "2000-01-01" },
+    "time": { "kind": "value", "value": "00:00" },
+    "reference": { "kind": "value", "value": "Till 1 · 000001" },
+    "items": {
+      "kind": "items",
+      "currency": "£",
+      "tax": { "mode": "added", "rate": 20, "label": "VAT" },
+      "items": [
+        { "name": "PLACEHOLDER ITEM A", "price": 4.5, "taxable": true },
+        { "name": "PLACEHOLDER ITEM B", "price": 2 },
+        { "name": "PLACEHOLDER ITEM C", "price": 12, "taxable": true }
+      ]
+    },
+    "payment": { "kind": "value", "value": "CARD ****0000" },
+    "footer": { "kind": "value", "value": "THANK YOU · PLACEHOLDER" }
   },
   "hotspots": [
     { "id": "receipt-note", "anchor": { "type": "rect", "x": 0.1, "y": 0.1, "width": 0.5, "height": 0.1 },

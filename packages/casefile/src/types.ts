@@ -99,6 +99,8 @@ export interface Template {
   placeholder?: boolean;
   defaultStyle?: string;
   aspect?: number;
+  /** How wide a new document of this template starts on the table, as a fraction of the table. */
+  defaultWidth?: number;
   slots: { name: string; kind: SlotKind; required?: boolean; label?: string }[];
   layout: Block;
 }

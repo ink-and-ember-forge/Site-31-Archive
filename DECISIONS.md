@@ -218,7 +218,17 @@ currency, optional tax added or included, marked taxable lines) and `choices` (t
 maths in whole pence (never floating point, half away from zero), schema changes, and loader tolerance (a bad item, currency
 or tax setting is dropped with a reason and never loses the document). `formatVersion` stays 1. Step 2 (viewer look) is next.
 
+## 2026-11-20: Document forms step 2 (viewer look) built, awaiting sign-off
+
+The viewer has new parts (letterhead, section bar, field grid, ruled lines, items list with computed totals, improved stamp,
+decorative barcode, rule, split row), the `witness-statement` template, an upgraded `receipt`, and two filled-in voices
+(typed and handwritten, as styles). The placeholder sample now uses them. Found and fixed while checking in a browser: a
+page's shape must be a minimum height, not fixed (a fixed shape clipped long content); single line breaks are kept; thin
+ruled lines vanished at some sizes until snapped to whole pixels; the focused view is sized from the real page shape. The
+author's sign-off on the look is needed before step 3 (the tool's forms). The pull request waits for step 3, because in
+between, the tool could not edit a receipt's items.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
-document types after the witness statement, house style. Next: document forms step 2 (viewer look), then step 3 (tool forms), then authoring tool step 3 (hotspots), 4 and 5.
+document types after the witness statement, house style. Next: the author's sign-off on the form look, then document forms step 3 (the tool's bespoke forms), then authoring tool step 3 (hotspots), 4 and 5.

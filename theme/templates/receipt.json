@@ -3,18 +3,112 @@
   "name": "Receipt (PLACEHOLDER starter)",
   "placeholder": true,
   "defaultStyle": "receipt-thermal",
-  "aspect": 0.45,
+  "aspect": 1.4,
   "slots": [
-    { "name": "store", "kind": "value" },
-    { "name": "items", "kind": "markdown", "required": true },
-    { "name": "total", "kind": "value" }
+    {
+      "name": "store",
+      "kind": "value",
+      "label": "Store name"
+    },
+    {
+      "name": "address",
+      "kind": "markdown",
+      "label": "Address and contact lines"
+    },
+    {
+      "name": "date",
+      "kind": "value",
+      "label": "Date"
+    },
+    {
+      "name": "time",
+      "kind": "value",
+      "label": "Time"
+    },
+    {
+      "name": "reference",
+      "kind": "value",
+      "label": "Reference or till number"
+    },
+    {
+      "name": "items",
+      "kind": "items",
+      "required": true,
+      "label": "Items"
+    },
+    {
+      "name": "payment",
+      "kind": "value",
+      "label": "Payment line (for example: CARD)"
+    },
+    {
+      "name": "footer",
+      "kind": "value",
+      "label": "Closing message"
+    }
   ],
   "layout": {
     "block": "stack",
     "children": [
-      { "block": "title", "slot": "store" },
-      { "block": "table", "slot": "items" },
-      { "block": "field-row", "slot": "total", "props": { "label": "TOTAL" } }
+      {
+        "block": "title",
+        "slot": "store",
+        "props": {
+          "size": "large"
+        }
+      },
+      {
+        "block": "paragraph",
+        "slot": "address",
+        "props": {
+          "align": "center"
+        }
+      },
+      {
+        "block": "rule"
+      },
+      {
+        "block": "split-row",
+        "props": {
+          "left": "date",
+          "right": "time"
+        }
+      },
+      {
+        "block": "field-row",
+        "slot": "reference",
+        "props": {
+          "label": "Ref"
+        }
+      },
+      {
+        "block": "rule"
+      },
+      {
+        "block": "items-list",
+        "slot": "items"
+      },
+      {
+        "block": "rule"
+      },
+      {
+        "block": "caption",
+        "slot": "payment",
+        "props": {
+          "align": "left"
+        }
+      },
+      {
+        "block": "caption",
+        "slot": "footer"
+      },
+      {
+        "block": "barcode",
+        "props": {
+          "seed": "reference"
+        }
+      }
     ]
-  }
+  },
+  "defaultWidth": 0.17
 }

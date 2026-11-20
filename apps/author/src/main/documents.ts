@@ -115,7 +115,7 @@ export class DocumentFiles {
       writeFileSync(target, content);
     }
     this.writeDoc(id, document);
-    this.writeManifest(addDocumentToManifest(manifest, id, defaultLayout(template.aspect, this.ids(manifest).length)));
+    this.writeManifest(addDocumentToManifest(manifest, id, defaultLayout(template.aspect, this.ids(manifest).length, template.defaultWidth)));
     return { ok: true, value: id };
   }
 

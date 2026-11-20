@@ -1,0 +1,23 @@
+{
+  "id": "form-typed",
+  "name": "Printed form, typed entries (PLACEHOLDER starter)",
+  "placeholder": true,
+  "tokens": {
+    "printFont": "Arial, Helvetica, sans-serif",
+    "fontFamily": "Arial, Helvetica, sans-serif",
+    "fontSize": "13px",
+    "ink": "#151515",
+    "paper": "#f7f3e8",
+    "paperTo": "#eee6d2",
+    "grain": "fine",
+    "entryFont": "'Courier New', Courier, monospace",
+    "entryInk": "#1c2742",
+    "entrySize": "12.5px",
+    "scriptFont": "'Segoe Script', 'Brush Script MT', 'Bradley Hand', cursive",
+    "barBg": "#0d0d0d",
+    "barInk": "#ffffff",
+    "greyBg": "#e3e3e3",
+    "line": "#2a2a2a",
+    "accent": "rgba(170, 35, 35, 0.78)"
+  }
+}

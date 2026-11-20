@@ -1,9 +1,30 @@
 {
-  "template": "typed",
+  "template": "witness-statement",
   "role": "central",
   "slots": {
-    "title": { "kind": "value", "value": "PLACEHOLDER STATEMENT" },
-    "body": { "kind": "markdown", "file": "documents/statement.md" }
+    "crest": { "kind": "image", "file": "media/images/placeholder-crest.svg", "alt": "PLACEHOLDER crest" },
+    "agency": { "kind": "value", "value": "PLACEHOLDER AGENCY" },
+    "agencyLines": { "kind": "markdown", "text": "Placeholder address line one\nPlaceholder address line two · Tel 000 0000" },
+    "formNumber": { "kind": "value", "value": "12-B" },
+    "formRevision": { "kind": "value", "value": "01/00" },
+    "title": { "kind": "value", "value": "PLACEHOLDER: WITNESS STATEMENT FORM" },
+    "subtitle": { "kind": "value", "value": "Complete in ink. Use the reverse of the page if more space is needed." },
+    "stampText": { "kind": "value", "value": "Received" },
+    "stampDate": { "kind": "value", "value": "00 JAN 2000" },
+    "witnessName": { "kind": "value", "value": "PLACEHOLDER W. NAME" },
+    "homePhone": { "kind": "value", "value": "000 0000" },
+    "cellPhone": { "kind": "value", "value": "000 0001" },
+    "campusDept": { "kind": "value", "value": "PLACEHOLDER" },
+    "jobPosition": { "kind": "value", "value": "PLACEHOLDER" },
+    "witnessAddress": { "kind": "value", "value": "1 PLACEHOLDER ST." },
+    "injuredName": { "kind": "value", "value": "PLACEHOLDER E. NAME" },
+    "dateOfAccident": { "kind": "value", "value": "2000-01-01" },
+    "witnessSignature": { "kind": "value", "value": "Placeholder" },
+    "dateOfStatement": { "kind": "value", "value": "2000-01-02" },
+    "timeTaken": { "kind": "value", "value": "00:00" },
+    "body": { "kind": "markdown", "file": "documents/statement.md" },
+    "takenBy": { "kind": "value", "value": "PLACEHOLDER T. NAME" },
+    "officeUse": { "kind": "value", "value": "" }
   },
   "hotspots": [
     { "id": "note-1", "anchor": { "type": "text", "slot": "body" },

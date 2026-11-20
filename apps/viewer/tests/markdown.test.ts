@@ -6,6 +6,12 @@ describe('parseMarkdown', () => {
     expect(parseMarkdown('one\n\ntwo')).toHaveLength(2);
   });
 
+  it('keeps a single line break as a line break, and a blank line as a new paragraph', () => {
+    const blocks = parseMarkdown('line one\nline two\n\nnext paragraph');
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]).toEqual({ t: 'p', inline: [{ t: 'text', text: 'line one\nline two' }] });
+  });
+
   it('extracts hotspot spans', () => {
     const [p] = parseMarkdown('see [the words]{#note-1} here');
     expect(p).toEqual({

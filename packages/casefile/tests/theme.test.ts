@@ -14,7 +14,7 @@ describe('theme', () => {
   it('the repo starter theme is valid and covers the sample', async () => {
     const { theme, issues } = loadThemeFromFs(repoTheme);
     expect(issues).toEqual([]);
-    expect(Object.keys(theme.templates).sort()).toEqual(['handwritten', 'photograph', 'receipt', 'typed']);
+    expect(Object.keys(theme.templates).sort()).toEqual(['handwritten', 'photograph', 'receipt', 'typed', 'witness-statement']);
     const casefile = (await loadCasefile(fsSource(samplePath)) as any).casefile;
     expect(checkAgainstTheme(casefile, theme)).toEqual([]);
   });
@@ -25,7 +25,7 @@ describe('theme', () => {
     const casefile = await loadSample({
       'documents/still.json': { ...doc, template: 'mystery', style: 'nonexistent' },
       'documents/receipt.json': { ...(await sampleJson<any>('documents/receipt.json')), style: 'nonexistent' },
-      'templates/typed.json': { id: 'typed', slots: [], layout: { block: 'hologram' } },
+      'templates/witness-statement.json': { id: 'witness-statement', slots: [], layout: { block: 'hologram' } },
     });
     const text = checkAgainstTheme(casefile, theme).map((i) => i.message).join(' | ');
     expect(text).toContain('unknown template "mystery"');
@@ -43,5 +43,49 @@ describe('theme', () => {
     });
     expect(resolveTemplate('typed', casefile, theme).name).toBe('override');
     expect(resolveTemplate('receipt', casefile, theme).id).toBe('receipt');
+  });
+});
+
+import { lintTemplate } from '../src/theme';
+
+describe('the shared theme itself', () => {
+  it('every template refers only to slots it defines, and only to blocks that exist', () => {
+    const { theme, issues } = loadThemeFromFs(repoTheme);
+    expect(issues).toEqual([]);
+    for (const template of Object.values(theme.templates)) expect(lintTemplate(template), template.id).toEqual([]);
+  });
+
+  it('lintTemplate finds a layout that refers to a missing slot, a duplicate slot, and an unknown block', () => {
+    const template = {
+      id: 'broken',
+      slots: [{ name: 'a', kind: 'value' as const }, { name: 'a', kind: 'value' as const }],
+      layout: {
+        block: 'stack',
+        children: [
+          { block: 'title', slot: 'missing' },
+          { block: 'letterhead', props: { name: 'a', crest: 'nope' } },
+          { block: 'field-grid', props: { rows: [[{ slot: 'gone' }]] } },
+          { block: 'hologram' },
+        ],
+      },
+    };
+    const problems = lintTemplate(template).join(' | ');
+    expect(problems).toContain('"a" is defined twice');
+    expect(problems).toContain('slot "missing"');
+    expect(problems).toContain('slot "nope"');
+    expect(problems).toContain('slot "gone"');
+    expect(problems).toContain('"hologram"');
+  });
+
+  it('the build fails on a theme template that refers to a slot it does not have', async () => {
+    const { mkdirSync, mkdtempSync, writeFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const dir = mkdtempSync(join(tmpdir(), 'theme-lint-'));
+    mkdirSync(join(dir, 'templates'));
+    writeFileSync(join(dir, 'templates', 'bad.json'), JSON.stringify({ id: 'bad', slots: [], layout: { block: 'title', slot: 'nope' } }));
+    const { issues } = loadThemeFromFs(dir);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].message).toContain('slot "nope"');
   });
 });

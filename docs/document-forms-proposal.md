@@ -1,6 +1,6 @@
 # Document forms
 
-**Status: approved by the author on 2026-11-20. Step 1 of 3 (format, money, loader) is built; see the end.** It answers the author's feedback after trying
+**Status: approved by the author on 2026-11-20. Steps 1 and 2 of 3 are built (the look is awaiting the author's sign-off); see the end.** It answers the author's feedback after trying
 the authoring tool on 2026-11-20:
 
 1. Each document type should have its own bespoke form in the tool. A receipt has two columns (item, price),
@@ -158,7 +158,7 @@ Each step ships as a release so the author can try it.
 | Step | Status |
 | --- | --- |
 | 1. Format, money and loader | **Built.** Template slot labels, the `items` and `choices` content kinds, exact money maths, schema, tolerant loader, and 62 new tests. Nothing changes on screen yet. |
-| 2. Viewer | Next: the new parts, the `witness-statement` template, the upgraded receipt, and the two voices. Screenshots for sign-off. |
+| 2. Viewer | **Built, awaiting the author's sign-off.** The new parts, the `witness-statement` template, the upgraded receipt, and the two voices (typed and handwritten). |
 | 3. Authoring tool | After that: the bespoke forms and the items editor. |
 
 Details settled while building step 1:
@@ -167,3 +167,13 @@ Details settled while building step 1:
 - Prices are limited to plus or minus 1,000,000 and a list to 1,000 items, so the arithmetic is always exact.
 - A malformed receipt never loses the whole document. A bad item, currency or tax setting is dropped or ignored on its own, with a plain-English reason shown as a warning.
 - Until step 2, the placeholder receipt and the tool behave exactly as before. The viewer and the tool already accept the new kinds without breaking.
+
+Decisions made while building step 2:
+
+- A single line break is now kept as a line break (a blank line is a new paragraph), so addresses and typed lines keep their lines. Authors pressing Enter get a new line.
+- A page's shape is a **minimum height**, not a fixed one: a longer statement or receipt makes the page longer instead of being cut off. The focused view is sized from the page's real shape.
+- Templates may set `defaultWidth`, how wide a new document of that type starts on the table (a receipt is narrower than a form). Optional and additive.
+- The theme is checked at build: a template that refers to a slot it does not define, or a block that does not exist, fails the build with a plain message.
+- The stamp is drawn only when its text slot has something in it, so leaving it empty means no stamp.
+- Ruled lines and thin rules snap to whole pixels where the browser supports it, so they stay crisp.
+- Old receipts written as a Markdown table still render as they did.

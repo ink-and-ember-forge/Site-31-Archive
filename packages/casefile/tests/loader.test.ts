@@ -281,8 +281,10 @@ describe('itemised lists and ticked choices', () => {
     if (r.ok) expect(r.warnings).toHaveLength(1);
   });
 
-  it('the old Markdown receipt table still loads unchanged', async () => {
-    const r = await loadCasefile(fsSource(samplePath));
+  it('an older receipt written as a Markdown table still loads unchanged', async () => {
+    const r = await loadCasefile(
+      await sampleWith({ 'documents/receipt.json': receiptDoc({ items: { kind: 'markdown', text: '| Item | Price |\n| --- | --- |\n| Tea | 2.00 |' } }) }),
+    );
     if (!r.ok) throw new Error('should load');
     expect(r.warnings).toEqual([]);
     expect(r.casefile.documents.find((d) => d.id === 'receipt')!.slots.items).toMatchObject({ kind: 'markdown' });

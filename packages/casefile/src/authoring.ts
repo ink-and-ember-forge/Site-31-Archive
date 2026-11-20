@@ -104,6 +104,7 @@ export interface TemplateSlot {
 export interface TemplateLike {
   id: string;
   aspect?: number;
+  defaultWidth?: number;
   slots: TemplateSlot[];
 }
 
@@ -134,8 +135,8 @@ export function clampLayout(l: Layout): Layout {
  * Where a new document goes: sized so it is about half the height of the table, and each new one steps
  * down and across a little so they do not land exactly on top of each other.
  */
-export function defaultLayout(aspect: number | undefined, index: number): Layout {
-  const width = clamp((0.55 * (aspect ?? 0.75)) / 1.7, 0.12, 0.3);
+export function defaultLayout(aspect: number | undefined, index: number, preferredWidth?: number): Layout {
+  const width = preferredWidth ?? clamp((0.55 * (aspect ?? 0.75)) / 1.7, 0.12, 0.3);
   const step = index % 6;
   return clampLayout({ x: 0.08 + step * 0.05, y: 0.08 + step * 0.04, width });
 }

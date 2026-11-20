@@ -31,6 +31,8 @@
     /** Where the document starts from when it enters (percent of the table). */
     fromLeft: number;
     fromTop: number;
+    /** The document's real width over height, measured when it is focused. */
+    shape?: number;
   }
 
   // With animation off (reduced motion, or the authoring tool's preview) documents start in place, not tucked in the folder.
@@ -128,6 +130,11 @@
   }
   function toggleFocus(id: string) {
     focused = focused === id ? null : id;
+    if (focused) {
+      // Size the focused view from the document's real shape: a long statement is taller than its template's guess.
+      const paper = tableEl.querySelector<HTMLElement>(`[data-doc="${id}"] .paper`);
+      if (paper && paper.offsetHeight > 0) states[id].shape = paper.offsetWidth / paper.offsetHeight;
+    }
     if (focused) states[id].z = ++topZ;
   }
 
@@ -239,7 +246,7 @@
       return `${base}left:${s.fromLeft}%;top:${s.fromTop}%;width:${d.layout.width * 100}%;transform:translate(-50%,-50%) scale(0.1);opacity:0;`;
     }
     if (focused === d.id) {
-      const aspect = d.template.aspect ?? 0.75;
+      const aspect = s.shape ?? d.template.aspect ?? 0.75;
       const widthPx = Math.min(0.88 * th * aspect, 0.8 * tw);
       return `${base}left:50%;top:50%;width:${(widthPx / tw) * 100}%;transform:translate(-50%,-50%) scale(${s.zoom});z-index:100000;`;
     }

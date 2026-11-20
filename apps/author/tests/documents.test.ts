@@ -24,7 +24,7 @@ describe('viewing documents', () => {
     expect(documents[0]).toMatchObject({ id: 'statement', central: true, hidden: false, readable: true, templateName: 'Typed page' });
     expect(documents[0].slots.map((s) => [s.name, s.kind])).toEqual([['title', 'value'], ['body', 'markdown']]);
     expect(documents[0].slots[1].text).toContain('PLACEHOLDER');
-    expect(templates.map((t) => t.id).sort()).toEqual(['handwritten', 'photograph', 'receipt', 'typed']);
+    expect(templates.map((t) => t.id).sort()).toEqual(['handwritten', 'photograph', 'receipt', 'typed', 'witness-statement']);
     expect(templates.every((t) => !t.name.includes('PLACEHOLDER'))).toBe(true);
   });
 
@@ -44,7 +44,10 @@ describe('adding a document', () => {
     expect(added).toEqual({ ok: true, value: 'till-roll' });
     expect(ids(folder)).toEqual(['statement', 'till-roll']);
     expect(read(folder, 'documents/till-roll.json')).toMatchObject({ template: 'receipt', role: 'supporting' });
-    expect(existsSync(join(folder, 'documents', 'till-roll.items.md'))).toBe(true);
+    // A receipt's items are an itemised list kept in the document file, not a Markdown file.
+    expect(read(folder, 'documents/till-roll.json').slots.items).toEqual({ kind: 'items', items: [] });
+    expect(existsSync(join(folder, 'documents', 'till-roll.items.md'))).toBe(false);
+    expect(existsSync(join(folder, 'documents', 'till-roll.address.md'))).toBe(true);
     const layout = read(folder, 'case.json').documents[1].layout;
     expect(layout.x).toBeGreaterThan(0);
     expect(await session.problems()).toEqual([]);

@@ -1,0 +1,255 @@
+{
+  "id": "witness-statement",
+  "name": "Witness statement form (PLACEHOLDER starter)",
+  "placeholder": true,
+  "defaultStyle": "form-typed",
+  "aspect": 0.7,
+  "slots": [
+    {
+      "name": "crest",
+      "kind": "image",
+      "label": "Crest or logo (optional)"
+    },
+    {
+      "name": "agency",
+      "kind": "value",
+      "label": "Organisation name"
+    },
+    {
+      "name": "agencyLines",
+      "kind": "markdown",
+      "label": "Organisation address and contact lines"
+    },
+    {
+      "name": "formNumber",
+      "kind": "value",
+      "label": "Form number"
+    },
+    {
+      "name": "formRevision",
+      "kind": "value",
+      "label": "Revision"
+    },
+    {
+      "name": "title",
+      "kind": "value",
+      "label": "Form title"
+    },
+    {
+      "name": "subtitle",
+      "kind": "value",
+      "label": "Instruction under the title"
+    },
+    {
+      "name": "stampText",
+      "kind": "value",
+      "label": "Stamp (leave empty for none)"
+    },
+    {
+      "name": "stampDate",
+      "kind": "value",
+      "label": "Stamp date"
+    },
+    {
+      "name": "witnessName",
+      "kind": "value",
+      "label": "Witness Name:"
+    },
+    {
+      "name": "homePhone",
+      "kind": "value",
+      "label": "Witness Home Phone:"
+    },
+    {
+      "name": "cellPhone",
+      "kind": "value",
+      "label": "Witness Cell Phone:"
+    },
+    {
+      "name": "campusDept",
+      "kind": "value",
+      "label": "Witness Campus/Dept:"
+    },
+    {
+      "name": "jobPosition",
+      "kind": "value",
+      "label": "Witness Job Position:"
+    },
+    {
+      "name": "witnessAddress",
+      "kind": "value",
+      "label": "Witness Address:"
+    },
+    {
+      "name": "injuredName",
+      "kind": "value",
+      "label": "Injured Employee Name:"
+    },
+    {
+      "name": "dateOfAccident",
+      "kind": "value",
+      "label": "Date of Accident:"
+    },
+    {
+      "name": "witnessSignature",
+      "kind": "value",
+      "label": "Signature of Witness:"
+    },
+    {
+      "name": "dateOfStatement",
+      "kind": "value",
+      "label": "Date of Witness Statement:"
+    },
+    {
+      "name": "timeTaken",
+      "kind": "value",
+      "label": "Time Statement Taken:"
+    },
+    {
+      "name": "body",
+      "kind": "markdown",
+      "required": true,
+      "label": "Statement"
+    },
+    {
+      "name": "takenBy",
+      "kind": "value",
+      "label": "Statement Taken By:"
+    },
+    {
+      "name": "officeUse",
+      "kind": "value",
+      "label": "FOR OFFICE USE ONLY"
+    }
+  ],
+  "layout": {
+    "block": "stack",
+    "children": [
+      {
+        "block": "letterhead",
+        "props": {
+          "crest": "crest",
+          "name": "agency",
+          "lines": "agencyLines",
+          "reference": "formNumber",
+          "revision": "formRevision"
+        }
+      },
+      {
+        "block": "title",
+        "slot": "title",
+        "props": {
+          "subtitle": "subtitle"
+        }
+      },
+      {
+        "block": "stamp",
+        "props": {
+          "text": "stampText",
+          "date": "stampDate",
+          "top": "62%",
+          "right": "6%",
+          "tilt": -9
+        }
+      },
+      {
+        "block": "section-bar",
+        "props": {
+          "text": "GENERAL INFORMATION",
+          "tone": "black"
+        }
+      },
+      {
+        "block": "field-grid",
+        "props": {
+          "rows": [
+            [
+              {
+                "slot": "witnessName",
+                "width": 1.5
+              },
+              {
+                "slot": "homePhone",
+                "width": 1
+              },
+              {
+                "slot": "cellPhone",
+                "width": 1
+              },
+              {
+                "slot": "campusDept",
+                "width": 1.2
+              },
+              {
+                "slot": "jobPosition",
+                "width": 1.1
+              }
+            ],
+            [
+              {
+                "slot": "witnessAddress",
+                "width": 1.5
+              },
+              {
+                "slot": "injuredName",
+                "width": 1.7
+              },
+              {
+                "slot": "dateOfAccident",
+                "width": 1
+              }
+            ],
+            [
+              {
+                "slot": "witnessSignature",
+                "width": 1.5,
+                "voice": "script"
+              },
+              {
+                "slot": "dateOfStatement",
+                "width": 1.7
+              },
+              {
+                "slot": "timeTaken",
+                "width": 1
+              }
+            ]
+          ]
+        }
+      },
+      {
+        "block": "section-bar",
+        "props": {
+          "text": "STATEMENT",
+          "tone": "black"
+        }
+      },
+      {
+        "block": "ruled-lines",
+        "slot": "body",
+        "props": {
+          "lines": 12
+        }
+      },
+      {
+        "block": "field-grid",
+        "props": {
+          "rows": [
+            [
+              {
+                "slot": "takenBy",
+                "width": 1
+              },
+              {
+                "slot": "officeUse",
+                "width": 1,
+                "shaded": true
+              }
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "defaultWidth": 0.34
+}

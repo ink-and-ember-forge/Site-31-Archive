@@ -1,4 +1,4 @@
-import { isKnownBlock } from './blocks';
+import { isKnownBlock, slotRefs } from './blocks';
 import type { Block, Casefile, Issue, Style, Template } from './types';
 
 /** Shared look and feel (the repo's `theme/` folder). */
@@ -58,4 +58,26 @@ export function checkAgainstTheme(casefile: Casefile, theme: Theme): Issue[] {
     }
   }
   return issues;
+}
+
+/** Mistakes in a template itself: blocks that refer to slots the template does not define, and duplicate slots. */
+export function lintTemplate(template: Template): string[] {
+  const problems: string[] = [];
+  const names = new Set<string>();
+  for (const slot of template.slots) {
+    if (names.has(slot.name)) problems.push(`slot "${slot.name}" is defined twice`);
+    names.add(slot.name);
+  }
+  for (const ref of new Set(slotRefs(template.layout))) {
+    if (!names.has(ref)) problems.push(`the layout refers to slot "${ref}", which the template does not define`);
+  }
+  for (const block of walkBlocks(template.layout)) {
+    if (!isKnownBlock(block.block)) problems.push(`the layout uses a block that does not exist: "${block.block}"`);
+  }
+  return problems;
+}
+
+function* walkBlocks(block: Block): Generator<Block> {
+  yield block;
+  for (const child of block.children ?? []) yield* walkBlocks(child);
 }

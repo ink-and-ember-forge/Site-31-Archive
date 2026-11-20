@@ -41,6 +41,7 @@ export function parseMarkdown(source: string): MdBlock[] {
         const body = lines.filter((l, i) => !(i === 1 && isSeparator(l)));
         return { t: 'table', head: cells(body[0]), rows: body.slice(1).map(cells) };
       }
-      return { t: 'p', inline: parseInline(lines.join(' ')) };
+      // A single line break stays a line break (see Rich), so addresses and typed lines keep their lines.
+      return { t: 'p', inline: parseInline(lines.join('\n')) };
     });
 }
