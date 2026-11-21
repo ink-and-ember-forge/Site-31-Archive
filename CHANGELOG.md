@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.7](https://github.com/ink-and-ember-forge/Site-31-Archive/compare/site-31-archive-v0.1.6...site-31-archive-v0.1.7) (2026-11-21)
+
+
+### Features
+
+* **author:** edit discounts, printed overrides and the QR message on receipts ([2e81147](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/2e81147c5a2f2cc2f7cb853f2972eeacfdf66587))
+* **casefile:** discounts, printed overrides and total savings for receipts ([86fcadc](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/86fcadccd414bea21dc74d668f0672bb03502c3b))
+* receipt discounts, printed overrides, QR code, barcode number and form sections ([5f9be57](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/5f9be573c4a1aed71d429e68a31b1c72b8cfb871))
+* **viewer:** discounts, overrides, QR code and template sections for receipts ([ecce1af](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/ecce1af48328c16f65a859211c021aa149bf57cc))
+
+
+### Bug Fixes
+
+* **author:** keep a collapsible form section open while it is edited ([7e38d7e](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/7e38d7e9b561f341aca41ac83fa7f7c5eafcbd8d))
+
 ## [0.1.6](https://github.com/ink-and-ember-forge/Site-31-Archive/compare/site-31-archive-v0.1.5...site-31-archive-v0.1.6) (2026-11-21)
 
 
