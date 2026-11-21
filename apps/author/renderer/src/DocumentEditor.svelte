@@ -18,6 +18,16 @@
     layout = { x: l.x, y: l.y, width: l.width, rotation: l.rotation ?? 0 };
   });
 
+  // A collapsible section starts open only if something is already written in it. After that it stays as the author left
+  // it: saving a change refreshes the document, which must never close the section being typed in.
+  const chosen = $state<Record<string, boolean>>({});
+  const startedOpen: Record<string, boolean> = {};
+  function sectionOpen(title: string, names: string[]): boolean {
+    if (title in chosen) return chosen[title];
+    startedOpen[title] ??= untrack(() => names.some((n) => slotMap[n]?.text || slotMap[n]?.image));
+    return startedOpen[title];
+  }
+
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 
   function saveLayout() {
@@ -48,7 +58,7 @@
           <FieldGridForm docId={doc.id} rows={item.rows} slots={slotMap} {autosave} />
         {:else if item.collapsible}
           <!-- Parts most documents leave empty: closed to keep the form short, open when something is already written. -->
-          <details class="section" open={untrack(() => item.slots.some((n) => slotMap[n]?.text || slotMap[n]?.image))}>
+          <details class="section" open={sectionOpen(item.title ?? '', item.slots)} ontoggle={(e) => (chosen[item.title ?? ''] = e.currentTarget.open)}>
             <summary>{item.title}</summary>
             {#each item.slots as name (name)}
               {#if slotMap[name]}<SlotField docId={doc.id} slot={slotMap[name]} {autosave} {now} />{/if}
