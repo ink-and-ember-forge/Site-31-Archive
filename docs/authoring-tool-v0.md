@@ -113,8 +113,8 @@ Each step ships as a release, so the author can install it and try it.
 | --- | --- |
 | 1. Shell and live preview | **Built.** Create or open an episode folder, edit the episode details with autosave, and see the real viewer update beside the forms. Problems are listed in plain English. |
 | 2. Documents | **Built.** Add a document by type and name, fill it in through a form generated from its template (values, text, images), drag it into place on the preview or type exact positions, choose the main document, hide or remove one. |
-| 3. Hotspots | Next |
-| 4. Registry and problems | |
+| 3. Hotspots | **Built.** Select words in a text box and press "Make selected words clickable"; each clickable part opens a marginal note (formal or handwritten), another document, or a registry entry; boxes for pictures and receipts, set with numbers. |
+| 4. Registry and problems | **Built.** Add, edit and remove registry entries (kind, title, fields, text, links to other entries, "used by"), and a "Go to it" button on each problem. |
 | 5. Hardening | |
 
 Decisions made while building step 1:
@@ -144,3 +144,12 @@ After trying the tool, the author asked for forms that fit each kind of paper an
 
 The receipt form has tax categories with a picker on each item, optional product codes and quantity at unit price, a payment (tender) box with
 live change, discounts under items, "printed as" boxes (with a warning when a printed figure differs from the worked-out one), a QR message, and the form grouped into the template's collapsible sections. See `receipt-proposal.md`.
+
+## Hotspots and registry (added 2026-11-21)
+
+- **Making words clickable.** Select words in a text box and press the button under it. The tool marks the words in the text (`[words]{#id}`) and adds the hotspot in one step, so one can never be saved without the other. The id is made from the words. A selection across lines, with brackets in it, or overlapping words that are already clickable is refused with a reason.
+- **What a clickable part opens.** A marginal note (formal or handwritten, with an optional title and its text), another document in the episode, or a registry entry (chosen from this episode's, or typed as `episode-id/entry-id` for another episode's). A note kept in its own file is rewritten in that file. Nothing is saved until the target is complete.
+- **Boxes.** A picture or receipt has no words to mark, so a box is added instead and positioned with numbers (fractions of the document). Dragging a box on the preview is not built.
+- **Removing.** A clickable part on words is removed together with its mark, so the words stay and nothing is left behind.
+- **Registry.** The episode panel lists the entries and adds new ones from a title and kind; the id is made from the title once and then fixed. Each entry has kind (with suggestions), title, labelled fields (reorderable), text, and links to other entries (from this episode or typed). An entry shows what opens or links to it, and removing one warns if it is in use.
+- **Problems.** A problem about a document, a registry entry, or the episode has a "Go to it" button.

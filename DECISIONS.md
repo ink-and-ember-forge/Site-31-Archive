@@ -292,6 +292,15 @@ tax, total, savings and change, each with a note saying whether it differs from 
 may now set `maxLength` (300 for the QR message), enforced in the tool and in the file layer. The form is grouped by the template's sections. Style picker and receipt looks
 are the next round.
 
+## 2026-11-21: Authoring tool steps 3 and 4 (hotspots, registry, problems) built
+
+The tool makes words clickable (marking the words and adding the hotspot in one step), edits what each clickable part opens (a note, another document, or a registry
+entry), adds boxes for pictures and receipts, and edits registry entries with links, fields and a "used by" list. Problems have a "Go to it" button. Decisions: a
+hotspot's words cannot be changed after it is made (remove and remake); removing one takes the mark off the words; nothing is saved until a target is complete; a form
+box refreshes its text from the file only when told to (after a removal), never on an ordinary refresh, because a refresh can be a moment behind what is being typed;
+a card or section the author opened stays open. Dragging box hotspots on the preview and deleting every reference to a removed entry are not built; the viewer already
+shows an entry that is gone as "no record on file".
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,

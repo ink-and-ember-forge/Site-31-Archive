@@ -120,6 +120,9 @@ export class EpisodeSession {
   importImage = (id: string, slot: string, sourcePath: string) => this.files.importImage(id, slot, sourcePath);
   setImageAlt = (id: string, slot: string, alt: string) => this.files.setImageAlt(id, slot, alt);
   setItems = (id: string, slot: string, items: unknown) => this.files.setItems(id, slot, items);
+  addRegistryEntry = (title: string, kind: string) => this.registry.add(title, kind);
+  setRegistryEntry = (id: string, edit: unknown) => this.registry.set(id, edit as never);
+  removeRegistryEntry = (id: string) => this.registry.remove(id);
   addTextHotspot = (id: string, slot: string, text: string, hotspot: unknown) => this.files.addTextHotspot(id, slot, text, hotspot);
   addRectHotspot = (id: string, hotspot: unknown) => this.files.addRectHotspot(id, hotspot);
   setHotspot = (id: string, hotspot: unknown) => this.files.setHotspot(id, hotspot);

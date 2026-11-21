@@ -5,6 +5,8 @@
   import DocumentEditor from './DocumentEditor.svelte';
   import EpisodePanel from './EpisodePanel.svelte';
   import Problems from './Problems.svelte';
+  import RegistryEditor from './RegistryEditor.svelte';
+  import { targetOfPath } from './lib/registry';
   import Welcome from './Welcome.svelte';
   import type { Action } from './lib/actions';
 
@@ -23,11 +25,14 @@
   let previewFrame = $state<HTMLIFrameElement>();
   const timers: Record<string, ReturnType<typeof setTimeout>> = {};
 
+  let selectedEntry = $state<string | null>(null); // the registry entry being edited, if any
   const selectedDoc = $derived(episode?.documents.find((d) => d.id === selected));
+  const selectedEntryView = $derived(episode?.registry.find((r) => r.id === selectedEntry));
 
   function load(state: EpisodeState) {
     episode = state;
     selected = null;
+    selectedEntry = null;
     focusWanted = null;
     form = { ...state.details };
     orderText = state.details.order === undefined ? '' : String(state.details.order);
@@ -113,7 +118,29 @@
 
   function select(id: string | null) {
     selected = id;
+    selectedEntry = null;
     focusDoc(id);
+  }
+
+  function selectEntry(id: string | null) {
+    selectedEntry = id;
+    selected = null;
+    focusDoc(null);
+  }
+
+  async function addEntry(title: string, kind: string) {
+    const before = new Set(episode?.registry.map((r) => r.id));
+    const result = await now(() => window.author.addRegistryEntry(title, kind));
+    // Go straight to the new entry so the author can start filling it in.
+    if (result?.ok) selectEntry(result.value.registry.find((r) => !before.has(r.id))?.id ?? null);
+  }
+
+  /** A problem's "Go to it": open the document, entry or episode view the problem is about. */
+  function jump(target: ReturnType<typeof targetOfPath>) {
+    if (!target || !episode) return;
+    if (target.type === 'document' && episode.documents.some((d) => d.id === target.id)) select(target.id);
+    else if (target.type === 'registry' && episode.registry.some((r) => r.id === target.id)) selectEntry(target.id);
+    else if (target.type === 'episode') select(null);
   }
 
   async function addDocument(template: string, name: string) {
@@ -192,15 +219,28 @@
 
       {#if message}<div class="alert" role="alert">{message}</div>{/if}
 
-      {#if selectedDoc}
+      {#if selectedEntryView}
+        {#key selectedEntryView.id}
+          <RegistryEditor
+            entry={selectedEntryView}
+            entries={episode.registry}
+            documentLabels={Object.fromEntries(episode.documents.map((d) => [d.id, d.id]))}
+            autosave={autosave}
+            {now}
+            onback={() => selectEntry(null)}
+            onselectentry={selectEntry}
+            onselectdoc={select}
+          />
+        {/key}
+      {:else if selectedDoc}
         {#key selectedDoc.id}
           <DocumentEditor doc={selectedDoc} others={episode.documents.filter((d) => d.id !== selectedDoc.id).map((d) => ({ id: d.id, label: d.hidden ? `${d.id} (hidden)` : d.id }))} registry={episode.registry} autosave={editAutosave} {now} onback={() => select(null)} />
         {/key}
       {:else}
-        <EpisodePanel {episode} bind:form bind:orderText onchange={saveDetails} onselect={select} onadd={addDocument} />
+        <EpisodePanel {episode} bind:form bind:orderText onchange={saveDetails} onselect={select} onadd={addDocument} onselectentry={selectEntry} onaddentry={addEntry} />
       {/if}
 
-      <Problems problems={episode.problems} />
+      <Problems problems={episode.problems} onjump={jump} />
 
       <p class="publish">To publish: drag this folder into <code>episodes/</code> in the repository on GitHub, open a pull request and merge it.</p>
     </aside>

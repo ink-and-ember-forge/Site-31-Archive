@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Problem } from '../../src/shared/api';
-  let { problems }: { problems: Problem[] } = $props();
+  import { targetOfPath } from './lib/registry';
+  let { problems, onjump }: { problems: Problem[]; onjump?: (target: ReturnType<typeof targetOfPath>) => void } = $props();
 </script>
 
 <section class="problems">
@@ -14,6 +15,7 @@
           <strong>{p.severity === 'error' ? 'Must fix' : 'Look at'}: {p.path}</strong>
           <span>{p.message}</span>
           {#if p.hint}<em>{p.hint}</em>{/if}
+          {#if onjump && targetOfPath(p.path)}<button class="small go" onclick={() => onjump(targetOfPath(p.path))}>Go to it</button>{/if}
         </li>
       {/each}
     </ul>
@@ -27,5 +29,6 @@
   li.error { border-color: var(--error); }
   li span, li em { display: block; }
   li em { color: var(--muted); }
+  .go { margin-top: 0.3rem; }
   .ok { color: var(--muted); margin: 0; }
 </style>

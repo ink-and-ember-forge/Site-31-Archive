@@ -19,6 +19,9 @@ contextBridge.exposeInMainWorld('author', {
   addRectHotspot: (id, hotspot) => ipcRenderer.invoke('author:add-rect-hotspot', id, hotspot),
   setHotspot: (id, hotspot) => ipcRenderer.invoke('author:set-hotspot', id, hotspot),
   removeHotspot: (id, hotspotId, text) => ipcRenderer.invoke('author:remove-hotspot', id, hotspotId, text),
+  addRegistryEntry: (title, kind) => ipcRenderer.invoke('author:add-registry', title, kind),
+  setRegistryEntry: (id, edit) => ipcRenderer.invoke('author:set-registry', id, edit),
+  removeRegistryEntry: (id) => ipcRenderer.invoke('author:remove-registry', id),
   revealFolder: () => ipcRenderer.invoke('author:reveal'),
   onPreview: (callback) => {
     const handler = (_event, info) => callback(info);

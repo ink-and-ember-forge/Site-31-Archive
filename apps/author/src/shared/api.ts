@@ -67,15 +67,30 @@ export interface DocumentView {
   readable: boolean;
 }
 
-/** One registry entry, as listed. */
+/** One registry entry, as listed and edited. */
 export interface RegistryView {
   id: string;
   /** `<episode-id>/<entry-id>`, which is what a hotspot or another entry refers to. */
   globalId: string;
   kind: string;
   title: string;
+  fields: { label: string; value: string }[];
+  body: string;
+  /** Global ids of the entries this one links to, in this episode or another. */
+  references: string[];
+  /** What opens or links to this entry now: hotspots (by document and hotspot) and other entries. */
+  referencedBy: { type: 'hotspot' | 'entry'; id: string; detail: string }[];
   /** False when the entry's file could not be read. */
   readable: boolean;
+}
+
+/** What the author edits in an entry. The id is fixed once the entry is made. */
+export interface RegistryEdit {
+  kind: string;
+  title: string;
+  fields: { label: string; value: string }[];
+  body: string;
+  references: string[];
 }
 
 /** Everything the window needs to show about the episode being edited. */
@@ -117,6 +132,10 @@ export interface AuthorApi {
   setHotspot(id: string, hotspot: Hotspot): Promise<Result<EpisodeState>>;
   /** Removes a hotspot. `text` is the text as the author has it now, so the mark on the words comes off with it. */
   removeHotspot(id: string, hotspotId: string, text?: string): Promise<Result<EpisodeState>>;
+  /** Makes a new registry entry from a title and a kind.. The new entry is the one the returned state has that it did not have before. */
+  addRegistryEntry(title: string, kind: string): Promise<Result<EpisodeState>>;
+  setRegistryEntry(id: string, edit: RegistryEdit): Promise<Result<EpisodeState>>;
+  removeRegistryEntry(id: string): Promise<Result<EpisodeState>>;
   revealFolder(): Promise<void>;
   /** Called each time the preview has been rebuilt. Returns a function that stops listening. */
   onPreview(callback: (info: { version: number; id: string }) => void): () => void;

@@ -2,14 +2,19 @@
   import type { EpisodeDetails } from '@archive/casefile/authoring';
   import type { EpisodeState } from '../../src/shared/api';
 
-  let { episode, form = $bindable(), orderText = $bindable(), onchange, onselect, onadd }: {
+  let { episode, form = $bindable(), orderText = $bindable(), onchange, onselect, onadd, onselectentry, onaddentry }: {
     episode: EpisodeState;
     form: EpisodeDetails;
     orderText: string;
     onchange: () => void;
     onselect: (id: string) => void;
     onadd: (template: string, name: string) => void;
+    onselectentry: (id: string) => void;
+    onaddentry: (title: string, kind: string) => void;
   } = $props();
+
+  let entryTitle = $state('');
+  let entryKind = $state('record');
 
   let template = $state('');
   let name = $state('');
@@ -53,7 +58,32 @@
   </div>
 </section>
 
+<section class="documents">
+  <h2>Registry</h2>
+  <p class="help">The archive answering back. Entries are what a reader sees when something opens the registry overlay.</p>
+  {#if episode.registry.length > 0}
+    <ul>
+      {#each episode.registry as entry (entry.id)}
+        <li>
+          <button class="doc" onclick={() => onselectentry(entry.id)}>
+            <strong>{entry.title}</strong>
+            <span>{entry.kind}</span>
+            {#if !entry.readable}<em class="badge">Needs fixing</em>{:else if entry.referencedBy.length === 0}<em class="badge">Not used yet</em>{/if}
+          </button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+  <div class="add">
+    <h3>Add an entry</h3>
+    <label><span>Title</span><input aria-label="Entry name" bind:value={entryTitle} placeholder="For example: The grey van" onkeydown={(e) => e.key === 'Enter' && entryTitle.trim() && (onaddentry(entryTitle, entryKind), (entryTitle = ''))} /></label>
+    <label><span>Kind</span><input aria-label="New entry kind" bind:value={entryKind} placeholder="record, person, place…" /></label>
+    <button class="primary" disabled={entryTitle.trim() === ''} onclick={() => { onaddentry(entryTitle, entryKind); entryTitle = ''; }}>Add entry</button>
+  </div>
+</section>
+
 <style>
+  .help { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.7rem; }
   h2 { font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: normal; margin: 0 0 0.7rem; }
   h3 { font-size: 0.85rem; margin: 1rem 0 0.5rem; font-weight: 600; }
   .documents { margin: 1.4rem 0; }

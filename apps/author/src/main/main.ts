@@ -129,6 +129,11 @@ function registerIpc(): void {
     session && text(id, 100) && smallObject(hotspot) ? done(session.setHotspot(id, hotspot)) : bad);
   ipcMain.handle('author:remove-hotspot', (_e, id: unknown, hotspotId: unknown, value: unknown) =>
     session && text(id, 100) && text(hotspotId, 100) && (value === undefined || text(value)) ? done(session.removeHotspot(id, hotspotId, value as string | undefined)) : bad);
+  ipcMain.handle('author:add-registry', (_e, title: unknown, kind: unknown) =>
+    session && text(title, 400) && text(kind, 100) ? done(session.addRegistryEntry(title, kind)) : bad);
+  ipcMain.handle('author:set-registry', (_e, id: unknown, edit: unknown) =>
+    session && text(id, 100) && smallObject(edit) ? done(session.setRegistryEntry(id, edit)) : bad);
+  ipcMain.handle('author:remove-registry', (_e, id: unknown) => (session && text(id, 100) ? done(session.removeRegistryEntry(id)) : bad));
   ipcMain.handle('author:choose-image', async (_e, id: unknown, slot: unknown) => {
     if (!session || !text(id, 100) || !text(slot, 100)) return bad;
     const picked = await dialog.showOpenDialog(win!, {
