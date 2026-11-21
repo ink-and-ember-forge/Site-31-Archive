@@ -383,6 +383,19 @@ describe('making words clickable', () => {
   });
 });
 
+describe('making words clickable: ids and links', () => {
+  it('counts ids already marked in the text as taken, even when their hotspot is gone', () => {
+    const t = 'See [the van]{#the-van} and later the van again';
+    const i = t.lastIndexOf('the van');
+    expect((makeClickable(t, i, i + 7, []) as { id: string }).id).toBe('the-van-2');
+  });
+  it('refuses words that are already the text of a Markdown link', () => {
+    const t = 'see [the report](https://x.example) now';
+    const i = t.indexOf('the report');
+    expect(makeClickable(t, i, i + 10)).toMatchObject({ ok: false, reason: expect.stringContaining('link') });
+  });
+});
+
 describe('spansIn and removeSpan', () => {
   const marked = 'A [one]{#one} and [two words]{#two-words}.';
   it('lists the spans with their words and places', () => {

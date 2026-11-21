@@ -19,7 +19,7 @@
   // The clickable part to show open: the one just made.
   let justMade = $state<string | null>(null);
   // Bumped when a change made here alters text that a box on this form is showing, so the box takes the new text.
-  let resync = $state(0);
+  let resync = $state<{ tick: number; slot: string | null }>({ tick: 0, slot: null });
   const takenIds = $derived(doc.hotspots.map((h) => h.id));
 
   async function addBox() {
@@ -31,7 +31,7 @@
     const what = h.words !== undefined ? `“${h.words}” will stay in the text, but stop being clickable.` : 'The box is removed.';
     if (!confirm(`Remove this clickable part? ${what}`)) return;
     const result = await now(() => window.author.removeHotspot(doc.id, h.id));
-    if (result?.ok) resync++;
+    if (result?.ok) resync = { tick: resync.tick + 1, slot: h.anchor.type === 'text' ? h.anchor.slot : null };
   }
 
   const slotMap = $derived<Record<string, SlotView>>(Object.fromEntries(doc.slots.map((s) => [s.name, s])));

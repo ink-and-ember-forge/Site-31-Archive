@@ -12,9 +12,9 @@
     takenIds = [],
     autosave,
     now,
-    resync = 0,
+    resync = { tick: 0, slot: null },
     onhotspot,
-  }: { docId: string; slot: SlotView; tall?: boolean; takenIds?: string[]; resync?: number; autosave: Autosave; now: Now; onhotspot?: (id: string) => void } = $props();
+  }: { docId: string; slot: SlotView; tall?: boolean; takenIds?: string[]; resync?: { tick: number; slot: string | null }; autosave: Autosave; now: Now; onhotspot?: (id: string) => void } = $props();
 
   // What is typed is kept here so a save finishing never moves the cursor or overwrites typing.
   let text = $state(untrack(() => slot.text));
@@ -23,11 +23,12 @@
   // When a change made elsewhere has altered this text (a clickable part removed, so its marks come off the words), the
   // form says so by bumping `resync`. Only then is the text taken from the document again, never on an ordinary refresh,
   // which could be a moment behind what is being typed.
-  let lastResync = untrack(() => resync);
+  let lastResync = untrack(() => resync.tick);
   $effect(() => {
-    if (resync !== lastResync) {
-      lastResync = resync;
-      untrack(() => (text = slot.text));
+    if (resync.tick !== lastResync) {
+      lastResync = resync.tick;
+      // Only the box the removed clickable part was in takes the new text; other boxes may have typing not yet saved.
+      if (resync.slot === slot.name) untrack(() => (text = slot.text));
     }
   });
 

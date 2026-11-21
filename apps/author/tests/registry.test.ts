@@ -101,6 +101,13 @@ describe('editing registry entries', () => {
     for (const c of cases) expect(session.setRegistryEntry('the-grey-van', c).ok, JSON.stringify(c).slice(0, 60)).toBe(false);
     expect(readFileSync(join(folder, 'registry/the-grey-van.json'), 'utf8')).toBe(before);
   });
+  it('a file that has become unreadable fails the save with a reason instead of throwing', async () => {
+    const { session, folder } = await withEntry();
+    writeFileSync(join(folder, 'registry/the-grey-van.json'), '{ not json');
+    const r = session.setRegistryEntry('the-grey-van', edit());
+    expect(r.ok).toBe(false);
+    expect(JSON.stringify(r)).toContain('could not be read');
+  });
   it('an edited episode opens in the real loader with nothing dropped', async () => {
     const { session } = await withEntry();
     session.setRegistryEntry('the-grey-van', edit({ fields: [{ label: 'A', value: 'B' }], references: ['elsewhere/entry'] }));

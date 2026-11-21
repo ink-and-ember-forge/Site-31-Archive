@@ -301,13 +301,16 @@ export class DocumentFiles {
     for (const entry of raw) {
       if (!entry || typeof entry !== 'object' || typeof (entry as Json).id !== 'string') continue;
       const h = entry as unknown as Hotspot;
-      const view: HotspotView = { id: h.id, anchor: h.anchor, target: h.target, valid: validateHotspot(entry) };
-      if (h.anchor?.type === 'text') {
-        const text = slots.find((s) => s.name === (h.anchor as { slot: string }).slot)?.text ?? '';
+      // A hotspot a hand edit left without an anchor or target still gets a safe one, so the form can show it and repair it.
+      const anchor = h.anchor && typeof h.anchor === 'object' && typeof (h.anchor as { type?: unknown }).type === 'string' ? h.anchor : ({ type: 'rect', x: 0, y: 0, width: 0.1, height: 0.1 } as const);
+      const target = h.target && typeof h.target === 'object' && typeof (h.target as { type?: unknown }).type === 'string' ? h.target : ({ type: 'lightbox', text: '' } as const);
+      const view: HotspotView = { id: h.id, anchor, target, valid: validateHotspot(entry) };
+      if (anchor.type === 'text') {
+        const text = slots.find((s) => s.name === anchor.slot)?.text ?? '';
         view.words = spansIn(text).find((sp) => sp.id === h.id)?.words;
       }
-      if (h.target?.type === 'lightbox') {
-        view.noteText = h.target.text ?? (h.target.file && this.resolveFile(h.target.file) && existsSync(join(this.folder, h.target.file)) ? readFileSync(join(this.folder, h.target.file), 'utf8') : '');
+      if (target.type === 'lightbox') {
+        view.noteText = target.text ?? (target.file && this.resolveFile(target.file) && existsSync(join(this.folder, target.file)) ? readFileSync(join(this.folder, target.file), 'utf8') : '');
       }
       out.push(view);
     }
@@ -388,9 +391,9 @@ export class DocumentFiles {
     let next = h;
     if (h.anchor?.type === 'rect') next = { ...h, anchor: clampRect(h.anchor) };
     // The anchor is fixed once made: only what it opens and its label change here.
-    if (JSON.stringify(next.anchor) !== JSON.stringify(before.anchor) && before.anchor.type === 'text') return fail('The words a clickable part is on cannot be changed here.');
+    if (JSON.stringify(next.anchor) !== JSON.stringify(before.anchor) && before.anchor?.type === 'text') return fail('The words a clickable part is on cannot be changed here.');
     let files: { path: string; text: string } | undefined;
-    if (next.target?.type === 'lightbox' && before.target.type === 'lightbox' && before.target.file) {
+    if (next.target?.type === 'lightbox' && before.target?.type === 'lightbox' && before.target.file) {
       const path = this.resolveFile(before.target.file);
       if (!path) return fail('This note points at a file outside the episode, so it cannot be edited here.');
       files = { path, text: next.target.text ?? '' };
@@ -403,7 +406,8 @@ export class DocumentFiles {
       mkdirSync(dirname(files.path), { recursive: true });
       writeFileSync(files.path, files.text);
     }
-    list[at] = checked.value;
+    // Only the anchor and target come from the form; anything else the file has on this hotspot (such as a label) is kept.
+    list[at] = { ...before, ...checked.value };
     this.writeDoc(id, doc);
     return ok;
   }
@@ -419,8 +423,8 @@ export class DocumentFiles {
     const list = this.hotspotList(doc);
     const at = list.findIndex((o) => o.id === hotspotId);
     if (at < 0) return fail('That clickable part is not in this document.');
-    const [gone] = list.splice(at, 1);
-    this.writeDoc(id, doc);
+    const gone = list[at];
+    // The mark comes off the words first: if that cannot be written, nothing has changed and the hotspot is still there.
     if (gone.anchor?.type === 'text') {
       const slot = gone.anchor.slot;
       const current = newText ?? this.slotText(id, slot);
@@ -429,6 +433,11 @@ export class DocumentFiles {
         if (!wrote.ok) return wrote;
       }
     }
+    const again = this.editableSlot(id, 'x');
+    if (!again.ok) return again;
+    const latest = this.hotspotList(again.value.doc);
+    again.value.doc.hotspots = latest.filter((o) => o.id !== hotspotId);
+    this.writeDoc(id, again.value.doc);
     return ok;
   }
 

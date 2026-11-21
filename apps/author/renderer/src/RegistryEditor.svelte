@@ -48,9 +48,9 @@
     changed();
   }
   const addReference = () => draft.references.push(newReference());
-  function addPicked() {
-    if (!pick) return;
-    if (!draft.references.some((r) => r.text.trim() === pick)) draft.references.push(newReference(pick));
+  function addPicked(chosen: string) {
+    if (!chosen) return;
+    if (!draft.references.some((r) => r.text.trim() === chosen)) draft.references.push(newReference(chosen));
     pick = '';
     changed();
   }
@@ -121,7 +121,7 @@
       {#if built.referenceErrors[r.key]}<p class="error" role="alert">Reference {i + 1}: {built.referenceErrors[r.key]}</p>{/if}
     {/each}
     <div class="row">
-      <select aria-label="Add a reference from this episode" bind:value={pick} onchange={addPicked}>
+      <select aria-label="Add a reference from this episode" value={pick} onchange={(e) => addPicked(e.currentTarget.value)}>
         <option value="">Add an entry from this episode…</option>
         {#each others as o (o.globalId)}<option value={o.globalId}>{o.title}</option>{/each}
       </select>

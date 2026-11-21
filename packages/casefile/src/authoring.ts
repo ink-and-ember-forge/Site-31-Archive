@@ -391,7 +391,9 @@ export function makeClickable(text: string, start: number, end: number, taken: I
   if (/[\r\n]/.test(words)) return { ok: false, reason: 'Select words on one line. A clickable part cannot run across a new line.' };
   if (/[[\]{}]/.test(words)) return { ok: false, reason: 'The selection contains a bracket, which is used to mark clickable words. Select just the words.' };
   if (spansIn(text).some((s) => from < s.end && to > s.start)) return { ok: false, reason: 'That part of the text is already clickable.' };
-  const id = uniqueId(slugify(words).slice(0, 40).replace(/-+$/, '') || 'hotspot', taken);
+  if (text.slice(to, to + 2) === '](') return { ok: false, reason: 'That text is already the words of a Markdown link, and marking it would break the link.' };
+  // Ids already marked in the text count as taken too, even when their hotspot is gone, so two spans never share one.
+  const id = uniqueId(slugify(words).slice(0, 40).replace(/-+$/, '') || 'hotspot', [...taken, ...spansIn(text).map((sp) => sp.id)]);
   return { ok: true, text: `${text.slice(0, from)}[${words}]{#${id}}${text.slice(to)}`, id, words };
 }
 

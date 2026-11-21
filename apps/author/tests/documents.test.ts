@@ -574,4 +574,40 @@ describe('hotspots', () => {
     writeFileSync(join(folder, 'documents/statement.json'), JSON.stringify(doc));
     expect((await view(session)).hotspots[0]).toMatchObject({ id: 'odd', valid: false });
   });
+
+  it('keeps other keys on a hotspot (such as a label) when what it opens is edited', async () => {
+    const { session, folder } = await withText();
+    const r = clickable('He saw the grey van outside.', 'the grey van');
+    session.addTextHotspot('statement', 'body', r.text, newTextHotspot(r.id, 'body'));
+    const doc = read(folder, 'documents/statement.json');
+    doc.hotspots[0].label = 'Grey van';
+    writeFileSync(join(folder, 'documents/statement.json'), JSON.stringify(doc));
+    const h = (await view(session)).hotspots[0];
+    session.setHotspot('statement', { id: h.id, anchor: h.anchor, target: { type: 'lightbox', text: 'changed' } });
+    expect(read(folder, 'documents/statement.json').hotspots[0]).toMatchObject({ label: 'Grey van', target: { type: 'lightbox', text: 'changed' } });
+  });
+
+  it('shows a hotspot with no anchor or target with safe defaults, so the form can repair it', async () => {
+    const { session, folder } = await withText();
+    const doc = read(folder, 'documents/statement.json');
+    doc.hotspots = [{ id: 'bare' }, { id: 'half', anchor: { type: 'rect', x: 0, y: 0, width: 0.1, height: 0.1 } }];
+    writeFileSync(join(folder, 'documents/statement.json'), JSON.stringify(doc));
+    const hs = (await view(session)).hotspots;
+    expect(hs.map((h) => h.valid)).toEqual([false, false]);
+    expect(hs[0].target).toEqual({ type: 'lightbox', text: '' });
+    expect(hs[0].anchor.type).toBe('rect');
+    expect(session.setHotspot('statement', { id: 'half', anchor: hs[1].anchor, target: { type: 'lightbox', text: 'fixed' } }).ok).toBe(true);
+    expect((await view(session)).hotspots[1].valid).toBe(true);
+  });
+
+  it('removing a hotspot whose text cannot be written changes nothing', async () => {
+    const { session, folder } = await withText();
+    const r = clickable('He saw the grey van outside.', 'the grey van');
+    session.addTextHotspot('statement', 'body', r.text, newTextHotspot(r.id, 'body'));
+    const doc = read(folder, 'documents/statement.json');
+    doc.slots.body = { kind: 'markdown', file: '../../escaped.md' };
+    writeFileSync(join(folder, 'documents/statement.json'), JSON.stringify(doc));
+    expect(session.removeHotspot('statement', 'the-grey-van', r.text).ok).toBe(false);
+    expect(read(folder, 'documents/statement.json').hotspots).toHaveLength(1);
+  });
 });

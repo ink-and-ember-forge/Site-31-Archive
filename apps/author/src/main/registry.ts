@@ -123,7 +123,12 @@ export class RegistryFiles {
     const bad = references.find((r) => !GLOBAL_ID.test(r));
     if (bad) return fail(`"${bad}" is not a reference. Write it as episode-id/entry-id, with lowercase letters, numbers and hyphens.`);
 
-    const existing = this.read(id);
+    let existing: Json;
+    try {
+      existing = this.read(id);
+    } catch {
+      return fail('This entry\'s file could not be read, so it was not changed. Fix the file, then reopen the episode.');
+    }
     const next: Json = { ...existing, id, kind, title };
     // Written in reading order; empty parts are left out rather than saved as empty.
     const ordered: Json = { id, kind, title };
