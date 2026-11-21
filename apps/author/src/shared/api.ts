@@ -26,6 +26,8 @@ export interface SlotView {
   required: boolean;
   /** The label printed on the form for this part (from the template), or empty if it has none. */
   label: string;
+  /** The most characters the template allows in this part, if it limits them. */
+  maxLength?: number;
   /** The text, for a value or markdown slot. */
   text: string;
   /** For an image slot: the file inside the episode, if one has been chosen. */

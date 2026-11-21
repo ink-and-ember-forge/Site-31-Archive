@@ -15,10 +15,31 @@ export interface ItemLine {
   /** How many (or how much, for a weight). With `unitPrice` the line total is quantity x unitPrice. */
   quantity?: number;
   unitPrice?: number;
+  /** Money off this line, printed beneath it. The tax category applies to the line after discounts. */
+  discounts?: Discount[];
   /** The code of one of the receipt's tax categories. No code means the line is not taxed. */
   tax?: string;
+  /** Text printed in place of this line's amount (a misprint, a smudge). The real amount is still used in the sums. */
+  printed?: string;
   /** Older receipts only: marked lines are taxed by the single `tax` setting. */
   taxable?: boolean;
+}
+
+export interface Discount {
+  /** Printed beside the amount, for example MULTIBUY. */
+  label?: string;
+  /** Positive: how much is taken off. Printed as a negative line. */
+  amount: number;
+}
+
+/** Text printed in place of a worked-out figure. Each is shown exactly as written. */
+export interface Overrides {
+  subtotal?: string;
+  total?: string;
+  change?: string;
+  savings?: string;
+  /** By tax category code: the tax printed for that category. */
+  tax?: Record<string, string>;
 }
 
 /** An older receipt's single tax setting. Still read; it behaves as one category with the code "T". */
@@ -56,6 +77,7 @@ export interface ItemsContent {
   /** For every category on the receipt: added on top of the prices, or already included in them. Default added. */
   taxMode?: TaxMode;
   tender?: Tender;
+  overrides?: Overrides;
   items: ItemLine[];
 }
 
@@ -68,6 +90,9 @@ export const MAX_TAX_LABEL_LENGTH = 20;
 export const MAX_TAX_CODE_LENGTH = 3;
 export const MAX_CODE_LENGTH = 20;
 export const MAX_METHOD_LENGTH = 20;
+export const MAX_DISCOUNTS = 5;
+export const MAX_LABEL_LENGTH = 30;
+export const MAX_PRINTED_LENGTH = 30;
 export const DEFAULT_TAX_LABEL = 'TAX';
 /** The category an older receipt's single tax setting becomes. */
 export const LEGACY_TAX_CODE = 'T';
@@ -107,11 +132,11 @@ function roundDiv(n: number, d: number): number {
 }
 
 /**
- * The total for one line in whole pence: quantity x unit price when both are usable, otherwise the price.
- * Null when there is nothing usable, or the line is bigger than the largest allowed price (which keeps the
- * arithmetic below exactly representable).
+ * The amount for one line before discounts, in whole pence: quantity x unit price when both are usable, otherwise
+ * the price. Null when there is nothing usable, or the line is bigger than the largest allowed price (which keeps
+ * the arithmetic below exactly representable).
  */
-export function lineMinor(item: Pick<ItemLine, 'price' | 'quantity' | 'unitPrice'>): number | null {
+export function grossMinor(item: Pick<ItemLine, 'price' | 'quantity' | 'unitPrice'>): number | null {
   let minor: number | null = null;
   if (item.quantity !== undefined && item.unitPrice !== undefined) {
     const unit = toMinorUnits(item.unitPrice);
@@ -120,6 +145,36 @@ export function lineMinor(item: Pick<ItemLine, 'price' | 'quantity' | 'unitPrice
   }
   if (minor === null && item.price !== undefined) minor = toMinorUnits(item.price);
   return minor !== null && Math.abs(minor) <= MAX_PRICE * 100 ? minor : null;
+}
+
+export interface AcceptedDiscount {
+  label?: string;
+  minor: number;
+}
+
+/**
+ * The discounts on a line that count, in whole pence. A discount counts only if its amount is a usable price above
+ * zero and it fits: together they may not take more than the line, and a line that is not above zero takes none.
+ */
+export function acceptedDiscounts(item: Pick<ItemLine, 'price' | 'quantity' | 'unitPrice' | 'discounts'>): AcceptedDiscount[] {
+  const gross = grossMinor(item);
+  const out: AcceptedDiscount[] = [];
+  if (gross === null || gross <= 0) return out;
+  let taken = 0;
+  for (const d of (item.discounts ?? []).slice(0, MAX_DISCOUNTS)) {
+    const minor = d && typeof d === 'object' ? toMinorUnits(d.amount) : null;
+    if (minor === null || minor <= 0 || taken + minor > gross) continue;
+    taken += minor;
+    out.push({ ...(typeof d.label === 'string' && d.label.trim() ? { label: d.label.trim() } : {}), minor });
+  }
+  return out;
+}
+
+/** The amount for one line after its discounts, in whole pence. Null when the line has no usable amount. */
+export function lineMinor(item: Pick<ItemLine, 'price' | 'quantity' | 'unitPrice' | 'discounts'>): number | null {
+  const gross = grossMinor(item);
+  if (gross === null) return null;
+  return gross - acceptedDiscounts(item).reduce((sum, d) => sum + d.minor, 0);
 }
 
 /** The tax categories and mode a receipt works with: its own, or the single older setting as category "T". */
@@ -142,6 +197,12 @@ export interface PricedLine {
   unitMinor?: number;
   /** The category code, when taxed. */
   taxCode?: string;
+  /** The amount before discounts (the same as `minor` when there are none). */
+  grossMinor: number;
+  /** The discounts that count, each printed as a negative line under the line. */
+  discounts: AcceptedDiscount[];
+  /** Text to print in place of the amount, if the line has an override. */
+  printed?: string;
 }
 
 export interface TaxLine {
@@ -174,10 +235,44 @@ export interface Totals {
   tenderMethod?: string;
   /** What is handed back: the amount tendered above the total, never below zero. */
   change?: number;
+  /** The sum of all discounts that count. */
+  savings: number;
+  /** Text printed in place of a figure, when the receipt overrides it. The figures above are always the real ones. */
+  printed: { subtotal?: string; total?: string; change?: string; savings?: string; tax: Record<string, string> };
+}
+
+const printedText = (v: unknown): string | undefined =>
+  typeof v === 'string' && v.trim() ? v.trim().slice(0, MAX_PRINTED_LENGTH) : undefined;
+
+function printedFigures(overrides: Overrides | undefined): Totals['printed'] {
+  const tax: Record<string, string> = {};
+  if (overrides?.tax && typeof overrides.tax === 'object') {
+    for (const [code, text] of Object.entries(overrides.tax)) {
+      const t = printedText(text);
+      if (t) tax[code] = t;
+    }
+  }
+  const out: Totals['printed'] = { tax };
+  for (const key of ['subtotal', 'total', 'change', 'savings'] as const) {
+    const t = printedText(overrides?.[key]);
+    if (t) out[key] = t;
+  }
+  return out;
+}
+
+/**
+ * Whether text printed in place of a figure is different from the figure. Compares only the digits and sign, so
+ * "£18.50", "18.5" and "18.50" all match 1850, and "VOID" or "18.5O" do not.
+ */
+export function printedDiffers(printed: string, minor: number): boolean {
+  const cleaned = printed.replace(/[^0-9.,-]/g, '').replace(/,(?=\d{3}\b)/g, '');
+  const value = Number(cleaned.replace(',', '.'));
+  if (cleaned === '' || !Number.isFinite(value)) return true;
+  return toMinorUnits(value) !== minor || /[A-Za-z]/.test(printed.replace(/[£$€¥]/g, '').replace(/[^A-Za-z]/g, ''));
 }
 
 /** Subtotal, tax (per category) and total for a list. Lines with nothing usable to price them are skipped. */
-export function computeTotals(content: Pick<ItemsContent, 'items' | 'tax' | 'taxes' | 'taxMode' | 'tender'>): Totals {
+export function computeTotals(content: Pick<ItemsContent, 'items' | 'tax' | 'taxes' | 'taxMode' | 'tender' | 'overrides'>): Totals {
   const { categories, mode } = resolveTaxes(content);
   const known = new Set(categories.map((c) => c.code));
   const lines: PricedLine[] = [];
@@ -186,7 +281,9 @@ export function computeTotals(content: Pick<ItemsContent, 'items' | 'tax' | 'tax
     if (minor === null) continue;
     const code = item.tax !== undefined ? item.tax : item.taxable === true && !content.taxes?.length ? LEGACY_TAX_CODE : undefined;
     const taxCode = code !== undefined && known.has(code) ? code : undefined;
-    const line: PricedLine = { name: item.name, minor, taxable: taxCode !== undefined };
+    const gross = grossMinor(item) as number;
+    const line: PricedLine = { name: item.name, minor, taxable: taxCode !== undefined, grossMinor: gross, discounts: acceptedDiscounts(item) };
+    if (typeof item.printed === 'string' && item.printed.trim()) line.printed = item.printed.trim().slice(0, MAX_PRINTED_LENGTH);
     if (item.code) line.code = item.code;
     if (item.quantity !== undefined && item.unitPrice !== undefined && toThousandths(item.quantity) !== null && toMinorUnits(item.unitPrice) !== null) {
       line.quantity = item.quantity;
@@ -218,6 +315,8 @@ export function computeTotals(content: Pick<ItemsContent, 'items' | 'tax' | 'tax
     taxLabel: categories[0]?.label?.trim() || DEFAULT_TAX_LABEL,
     hasTax: categories.length > 0,
     categories: taxLines,
+    savings: lines.reduce((sum, l) => sum + l.discounts.reduce((a, d) => a + d.minor, 0), 0),
+    printed: printedFigures(content.overrides),
   };
   if (categories.length > 0) {
     result.taxMode = mode;
@@ -286,6 +385,7 @@ export function normaliseItems(raw: unknown): Normalised<ItemsContent> {
   let taxes: TaxCategory[] | undefined;
   let taxMode: TaxMode | undefined;
   let tender: Tender | undefined;
+  let overrides: Overrides | undefined;
   const kept: ItemLine[] = [];
 
   if (source.currency !== undefined) {
@@ -321,6 +421,32 @@ export function normaliseItems(raw: unknown): Normalised<ItemsContent> {
       const method = typeof t.method === 'string' ? t.method.trim().slice(0, MAX_METHOD_LENGTH) : '';
       tender = { ...(method ? { method } : {}), amount: t.amount as number };
     } else issues.push(`the tender was ignored: it needs an amount from 0 to ${MAX_PRICE}`);
+  }
+
+  if (source.overrides !== undefined) {
+    const o = source.overrides;
+    if (!isRecord(o)) issues.push('the printed overrides were ignored: they must be an object');
+    else {
+      const clean: Overrides = {};
+      for (const key of ['subtotal', 'total', 'change', 'savings'] as const) {
+        if (o[key] === undefined) continue;
+        if (typeof o[key] === 'string' && (o[key] as string).trim() !== '' && (o[key] as string).length <= MAX_PRINTED_LENGTH) clean[key] = (o[key] as string).trim();
+        else issues.push(`the printed ${key} was ignored: it must be text of 1 to ${MAX_PRINTED_LENGTH} characters`);
+      }
+      if (o.tax !== undefined) {
+        if (!isRecord(o.tax)) issues.push('the printed tax was ignored: it must list a category code and its text');
+        else {
+          const tax: Record<string, string> = {};
+          for (const [code, text] of Object.entries(o.tax)) {
+            if (!known.has(code)) issues.push(`the printed tax for "${code}" was ignored: there is no such tax category`);
+            else if (typeof text === 'string' && text.trim() !== '' && text.length <= MAX_PRINTED_LENGTH) tax[code] = text.trim();
+            else issues.push(`the printed tax for "${code}" was ignored: it must be text of 1 to ${MAX_PRINTED_LENGTH} characters`);
+          }
+          if (Object.keys(tax).length > 0) clean.tax = tax;
+        }
+      }
+      if (Object.keys(clean).length > 0) overrides = clean;
+    }
   }
 
   if (source.items !== undefined && !Array.isArray(source.items)) issues.push('the items must be a list');
@@ -363,6 +489,31 @@ export function normaliseItems(raw: unknown): Normalised<ItemsContent> {
     }
     if (badPrice) issues.push(`${label}: the price was ignored because it must be a number between -${MAX_PRICE} and ${MAX_PRICE}`);
 
+    if (item.discounts !== undefined) {
+      if (!Array.isArray(item.discounts)) issues.push(`${label}: the discounts were ignored because they must be a list`);
+      else {
+        if (item.discounts.length > MAX_DISCOUNTS) issues.push(`${label}: only the first ${MAX_DISCOUNTS} discounts are used`);
+        const gross = grossMinor(clean) as number;
+        let taken = 0;
+        const accepted: Discount[] = [];
+        item.discounts.slice(0, MAX_DISCOUNTS).forEach((entry, di) => {
+          const d = entry as Record<string, unknown> | null;
+          const dl = `${label}: discount ${di + 1}`;
+          const minor = isRecord(d) && typeof d.amount === 'number' ? toMinorUnits(d.amount) : null;
+          if (!isRecord(d) || minor === null || minor <= 0) return void issues.push(`${dl} was ignored: the amount must be a price above 0`);
+          if (gross <= 0 || taken + minor > gross) return void issues.push(`${dl} was ignored: together the discounts cannot take more than the line`);
+          const dlabel = d.label === undefined ? undefined : typeof d.label === 'string' ? d.label.trim() : null;
+          if (dlabel === null || (dlabel !== undefined && dlabel.length > MAX_LABEL_LENGTH)) {
+            issues.push(`${dl}: the label was ignored because it must be text of at most ${MAX_LABEL_LENGTH} characters`);
+            taken += minor;
+            return void accepted.push({ amount: d.amount as number });
+          }
+          taken += minor;
+          accepted.push({ ...(dlabel ? { label: dlabel } : {}), amount: d.amount as number });
+        });
+        if (accepted.length > 0) clean.discounts = accepted;
+      }
+    }
     if (item.tax !== undefined) {
       if (typeof item.tax !== 'string') issues.push(`${label}: the tax category was ignored because it must be text`);
       else if (!known.has(item.tax)) issues.push(`${label}: the tax category "${item.tax}" does not exist, so the item is not taxed`);
@@ -372,6 +523,10 @@ export function normaliseItems(raw: unknown): Normalised<ItemsContent> {
       if (typeof item.taxable !== 'boolean') issues.push(`${label}: "taxable" was ignored because it must be true or false`);
       else if (item.taxable && !taxes) clean.taxable = true;
     }
+    if (item.printed !== undefined) {
+      if (typeof item.printed === 'string' && item.printed.trim() !== '' && item.printed.length <= MAX_PRINTED_LENGTH) clean.printed = item.printed.trim();
+      else issues.push(`${label}: the printed text was ignored because it must be text of 1 to ${MAX_PRINTED_LENGTH} characters`);
+    }
     kept.push(clean);
   });
   // Written in reading order, so saved files are tidy and changes show up as small diffs.
@@ -380,6 +535,7 @@ export function normaliseItems(raw: unknown): Normalised<ItemsContent> {
     ...(currency ? { currency } : {}),
     ...(taxes ? { taxes, ...(taxMode ? { taxMode } : {}) } : taxSetting ? { tax: taxSetting } : {}),
     ...(tender ? { tender } : {}),
+    ...(overrides ? { overrides } : {}),
     items: kept,
   };
   return { content, issues };

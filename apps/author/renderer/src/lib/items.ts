@@ -9,13 +9,17 @@ import {
   MAX_METHOD_LENGTH,
   MAX_TAX_CODE_LENGTH,
   MAX_TAX_LABEL_LENGTH,
-  lineMinor,
+  MAX_DISCOUNTS,
+  MAX_LABEL_LENGTH,
+  MAX_PRINTED_LENGTH,
+  grossMinor,
   parsePriceText,
   parseQuantityText,
   parseRateText,
   resolveTaxes,
   type ItemLine,
   type ItemsContent,
+  type Overrides,
   type TaxCategory,
   type TaxMode,
   type Tender,
@@ -31,6 +35,15 @@ export interface Row {
   unitPriceText: string;
   /** The code of the row's tax category, or '' for not taxed. */
   taxCode: string;
+  discounts: DiscountRow[];
+  /** Text printed in place of this line's amount. Blank means the real amount is printed. */
+  printed: string;
+}
+
+export interface DiscountRow {
+  key: number;
+  label: string;
+  amountText: string;
 }
 
 export interface CategoryRow {
@@ -49,7 +62,19 @@ export interface Draft {
   /** Blank amount means no tender. */
   tenderMethod: string;
   tenderAmount: string;
+  /** Text printed in place of a worked-out figure. Blank means the real figure is printed. */
+  overrides: OverrideDraft;
 }
+
+export interface OverrideDraft {
+  subtotal: string;
+  total: string;
+  change: string;
+  savings: string;
+  /** By tax category code. */
+  tax: Record<string, string>;
+}
+export const emptyOverrides = (): OverrideDraft => ({ subtotal: '', total: '', change: '', savings: '', tax: {} });
 
 let nextKey = 1;
 export const newRow = (over: Partial<Row> = {}): Row => ({
@@ -60,8 +85,11 @@ export const newRow = (over: Partial<Row> = {}): Row => ({
   quantityText: '',
   unitPriceText: '',
   taxCode: '',
+  discounts: [],
+  printed: '',
   ...over,
 });
+export const newDiscount = (over: Partial<DiscountRow> = {}): DiscountRow => ({ key: nextKey++, label: '', amountText: '', ...over });
 export const newCategory = (over: Partial<CategoryRow> = {}): CategoryRow => ({ key: nextKey++, code: '', label: '', rateText: '', ...over });
 
 /** An amount as the author would type it: no trailing zeros beyond two decimals. */
@@ -77,7 +105,7 @@ export function draftFrom(content?: ItemsContent): Draft {
     categories: categories.map((c) => newCategory({ code: c.code, label: c.label ?? '', rateText: String(c.rate) })),
     rows: (content?.items ?? []).map((i) => {
       const priced = i.quantity !== undefined && i.unitPrice !== undefined;
-      const minor = lineMinor(i) ?? 0;
+      const minor = grossMinor(i) ?? 0;
       return newRow({
         name: i.name,
         code: i.code ?? '',
@@ -86,15 +114,19 @@ export function draftFrom(content?: ItemsContent): Draft {
         quantityText: priced ? String(i.quantity) : '',
         unitPriceText: priced ? amountToText(Math.round((i.unitPrice as number) * 100)) : '',
         taxCode: i.tax ?? (legacy && i.taxable ? LEGACY_TAX_CODE : ''),
+        discounts: (i.discounts ?? []).map((d) => newDiscount({ label: d.label ?? '', amountText: amountToText(Math.round(d.amount * 100)) })),
+        printed: i.printed ?? '',
       });
     }),
     tenderMethod: content?.tender?.method ?? '',
     tenderAmount: content?.tender ? amountToText(Math.round(content.tender.amount * 100)) : '',
+    overrides: { ...emptyOverrides(), ...(content?.overrides ?? {}), tax: { ...(content?.overrides?.tax ?? {}) } },
   };
 }
 
 /** Does any row use the extra columns? Decides whether the editor opens with them showing. */
-export const usesDetails = (draft: Draft): boolean => draft.rows.some((r) => r.code !== '' || r.quantityText !== '' || r.unitPriceText !== '');
+export const usesDetails = (draft: Draft): boolean =>
+  draft.rows.some((r) => r.code !== '' || r.quantityText !== '' || r.unitPriceText !== '' || r.discounts.length > 0 || r.printed !== '');
 
 export interface Built {
   /** The list to save, or null while anything is still being typed or is wrong. */
@@ -105,12 +137,13 @@ export interface Built {
   categoryErrors: Record<number, string>;
   currencyError?: string;
   tenderError?: string;
+  overrideError?: string;
   /** Rows, categories or a tender that hold something but cannot be saved yet. */
   held: number;
 }
 
 const isBlank = (r: Row) =>
-  [r.name, r.code, r.priceText, r.quantityText, r.unitPriceText].every((t) => t.trim() === '');
+  [r.name, r.code, r.priceText, r.quantityText, r.unitPriceText, r.printed].every((t) => t.trim() === '') && r.discounts.length === 0;
 const isBlankCategory = (c: CategoryRow) => c.code.trim() === '' && c.label.trim() === '' && c.rateText.trim() === '';
 
 export function buildContent(draft: Draft): Built {
@@ -177,13 +210,46 @@ export function buildContent(draft: Draft): Built {
       }
       item.price = price.value;
     }
-    if (lineMinor(item) === null) {
+    if (grossMinor(item) === null) {
       rowErrors[row.key] = 'This line comes to more than the largest price allowed.';
       held++;
       continue;
     }
+    // ---- discounts: each a price above zero, together no more than the line
+    const discounts: { label?: string; amount: number }[] = [];
+    let discountError: string | undefined;
+    const filled = row.discounts.filter((d) => d.label.trim() !== '' || d.amountText.trim() !== '');
+    if (filled.length > MAX_DISCOUNTS) discountError = `Use at most ${MAX_DISCOUNTS} discounts on one item.`;
+    for (const d of filled) {
+      if (discountError) break;
+      const amount = parsePriceText(d.amountText);
+      const label = d.label.trim();
+      if (!amount.ok) discountError = `Discount: ${amount.reason}`;
+      else if (amount.value <= 0) discountError = 'Discount: the amount must be above 0. It is printed as a negative line for you.';
+      else if (label.length > MAX_LABEL_LENGTH) discountError = `Discount: use at most ${MAX_LABEL_LENGTH} characters for the label.`;
+      else discounts.push({ ...(label ? { label } : {}), amount: amount.value });
+    }
+    if (!discountError && discounts.length > 0) {
+      const gross = grossMinor(item) as number;
+      const taken = discounts.reduce((sum, d) => sum + Math.round(d.amount * 100), 0);
+      if (gross <= 0) discountError = 'A free or negative line cannot take a discount.';
+      else if (taken > gross) discountError = 'Together the discounts cannot take more than the line.';
+    }
+    if (discountError) {
+      rowErrors[row.key] = discountError;
+      held++;
+      continue;
+    }
+    if (discounts.length > 0) item.discounts = discounts;
     // A category that no longer exists simply means "not taxed".
     if (row.taxCode !== '' && known.has(row.taxCode)) item.tax = row.taxCode;
+    const printed = row.printed.trim();
+    if (printed.length > MAX_PRINTED_LENGTH) {
+      rowErrors[row.key] = `Use at most ${MAX_PRINTED_LENGTH} characters for the printed text.`;
+      held++;
+      continue;
+    }
+    if (printed) item.printed = printed;
     items.push(item);
   }
   if (items.length > MAX_ITEMS) held++;
@@ -203,12 +269,30 @@ export function buildContent(draft: Draft): Built {
     else tender = { ...(method ? { method } : {}), amount: amount.value };
   }
 
-  const blocked = held > 0 || currencyError || tenderError;
+  // ---- printed overrides: any figure's text, kept exactly as typed
+  const overrides: Overrides = {};
+  let overrideError: string | undefined;
+  for (const key of ['subtotal', 'total', 'change', 'savings'] as const) {
+    const text = draft.overrides[key].trim();
+    if (text.length > MAX_PRINTED_LENGTH) overrideError = `Use at most ${MAX_PRINTED_LENGTH} characters for the printed ${key}.`;
+    else if (text) overrides[key] = text;
+  }
+  const taxOverrides: Record<string, string> = {};
+  for (const [code, raw] of Object.entries(draft.overrides.tax)) {
+    const text = raw.trim();
+    if (!known.has(code) || !text) continue; // a category that is gone has nothing to override
+    if (text.length > MAX_PRINTED_LENGTH) overrideError = `Use at most ${MAX_PRINTED_LENGTH} characters for the printed tax.`;
+    else taxOverrides[code] = text;
+  }
+  if (Object.keys(taxOverrides).length > 0) overrides.tax = taxOverrides;
+
+  const blocked = held > 0 || currencyError || tenderError || overrideError;
   const content: ItemsContent = {
     kind: 'items',
     ...(currency ? { currency } : {}),
     ...(categories.length > 0 ? { taxes: categories, taxMode: draft.taxMode } : {}),
     ...(tender ? { tender } : {}),
+    ...(Object.keys(overrides).length > 0 ? { overrides } : {}),
     items,
   };
   return {
@@ -217,7 +301,8 @@ export function buildContent(draft: Draft): Built {
     categoryErrors,
     ...(currencyError ? { currencyError } : {}),
     ...(tenderError ? { tenderError } : {}),
-    held: held + (tenderError ? 1 : 0),
+    ...(overrideError ? { overrideError } : {}),
+    held: held + (tenderError ? 1 : 0) + (overrideError ? 1 : 0),
   };
 }
 

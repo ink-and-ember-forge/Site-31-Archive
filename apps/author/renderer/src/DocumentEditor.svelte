@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { planSlots, type PlanItem } from '@archive/casefile/authoring';
   import type { DocumentView, SlotView } from '../../src/shared/api';
   import type { Autosave, Now } from './lib/actions';
   import FieldGridForm from './FieldGridForm.svelte';
@@ -18,6 +19,16 @@
     layout = { x: l.x, y: l.y, width: l.width, rotation: l.rotation ?? 0 };
   });
 
+  // A section starts open if the template says so or something is already written in it. After that it stays as the
+  // author left it: saving a change refreshes the document, which must never close the section being typed in.
+  const chosen = $state<Record<string, boolean>>({});
+  const startedOpen: Record<string, boolean> = {};
+  function sectionOpen(item: Extract<PlanItem, { type: 'section' }>): boolean {
+    if (item.id in chosen) return chosen[item.id];
+    startedOpen[item.id] ??= untrack(() => item.open === true || planSlots(item).some((n) => slotMap[n]?.text || slotMap[n]?.image));
+    return startedOpen[item.id];
+  }
+
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 
   function saveLayout() {
@@ -31,6 +42,27 @@
   }
 </script>
 
+{#snippet planItems(items: PlanItem[])}
+  {#each items as item}
+    {#if item.type === 'bar'}
+      <h3 class="bar">{item.text}</h3>
+    {:else if item.type === 'grid'}
+      <FieldGridForm docId={doc.id} rows={item.rows} slots={slotMap} {autosave} />
+    {:else if item.type === 'section'}
+      <!-- A named group of the form: closed to keep it short when empty, and left as the author set it afterwards. -->
+      <details class="section" open={sectionOpen(item)} ontoggle={(e) => (chosen[item.id] = e.currentTarget.open)}>
+        <summary>{item.title}</summary>
+        {@render planItems(item.items)}
+      </details>
+    {:else}
+      {#if item.title}<h3>{item.title}</h3>{/if}
+      {#each item.slots as name (name)}
+        {#if slotMap[name]}<SlotField docId={doc.id} slot={slotMap[name]} tall={item.tall} {autosave} {now} />{/if}
+      {/each}
+    {/if}
+  {/each}
+{/snippet}
+
 <div class="editor">
   <button class="back" onclick={onback}>← Episode</button>
   <h2>{doc.id}</h2>
@@ -41,26 +73,7 @@
   {:else}
     <!-- The form follows the paper: the same sections and rows as the printed document. -->
     {#if doc.plan.length > 0}
-      {#each doc.plan as item}
-        {#if item.type === 'bar'}
-          <h3 class="bar">{item.text}</h3>
-        {:else if item.type === 'grid'}
-          <FieldGridForm docId={doc.id} rows={item.rows} slots={slotMap} {autosave} />
-        {:else if item.collapsible}
-          <!-- Parts most documents leave empty: closed to keep the form short, open when something is already written. -->
-          <details class="section" open={untrack(() => item.slots.some((n) => slotMap[n]?.text || slotMap[n]?.image))}>
-            <summary>{item.title}</summary>
-            {#each item.slots as name (name)}
-              {#if slotMap[name]}<SlotField docId={doc.id} slot={slotMap[name]} {autosave} {now} />{/if}
-            {/each}
-          </details>
-        {:else}
-          {#if item.title}<h3>{item.title}</h3>{/if}
-          {#each item.slots as name (name)}
-            {#if slotMap[name]}<SlotField docId={doc.id} slot={slotMap[name]} tall={item.tall} {autosave} {now} />{/if}
-          {/each}
-        {/if}
-      {/each}
+      {@render planItems(doc.plan)}
     {:else}
       {#each doc.slots as slot (slot.name)}<SlotField docId={doc.id} {slot} {autosave} {now} />{/each}
     {/if}

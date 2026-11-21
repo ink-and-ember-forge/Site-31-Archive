@@ -19,7 +19,7 @@
     </thead>
     <tbody>
       {#each rows as row}
-        <tr><td>{row.code} {row.label} {formatRate(row.rate)}%</td><td>{money(row.base)}</td><td>{money(row.tax)}</td></tr>
+        <tr><td>{row.code} {row.label} {formatRate(row.rate)}%</td><td>{money(row.base)}</td><td>{receipt.totals.printed.tax[row.code] ?? money(row.tax)}</td></tr>
       {/each}
     </tbody>
   </table>

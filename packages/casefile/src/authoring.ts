@@ -248,16 +248,33 @@ export type PlanItem =
   /** Rows of labelled boxes arranged as they are on the paper. */
   | { type: 'grid'; rows: PlanCell[][] }
   /** Slots listed one under another, optionally under a title. `tall` is for the long text set on ruled lines. */
-  | { type: 'slots'; title?: string; slots: string[]; tall?: boolean; collapsible?: boolean };
+  | { type: 'slots'; title?: string; slots: string[]; tall?: boolean }
+  /** A named group of the form (a template section), shown collapsible. Holds the same kinds of item. */
+  | { type: 'section'; id: string; title: string; open?: boolean; items: PlanItem[] };
+
+/** Every slot name a plan item shows, however deeply it is nested. */
+export function planSlots(item: PlanItem): string[] {
+  if (item.type === 'grid') return item.rows.flat().map((c) => c.slot);
+  if (item.type === 'slots') return item.slots;
+  if (item.type === 'section') return item.items.flatMap(planSlots);
+  return [];
+}
 
 /**
  * The order and arrangement of a template's form in the tool, taken from its layout so the form on the left mirrors the
  * paper on the right. Every slot appears exactly once: any the layout does not use are gathered at the end.
+ *
+ * A template may name `sections`, and a block may join one with `section` (it is inherited by the block's children).
+ * Each section becomes one group of the form, in the order the template lists them, holding what its blocks show.
  */
-export function editorPlan(template: { slots: { name: string }[]; layout: Block }): PlanItem[] {
+export function editorPlan(template: { slots: { name: string }[]; layout: Block; sections?: { id: string; name: string; open?: boolean }[] }): PlanItem[] {
   const known = new Set(template.slots.map((s) => s.name));
   const used = new Set<string>();
+  const sectionDefs = template.sections ?? [];
+  const sectionItems = new Map<string, PlanItem[]>(sectionDefs.map((d) => [d.id, []]));
   const plan: PlanItem[] = [];
+  // Where the next items go: the section the block belongs to, or the top level.
+  let target: PlanItem[] = plan;
 
   const take = (names: unknown[]): string[] => {
     const out: string[] = [];
@@ -270,23 +287,21 @@ export function editorPlan(template: { slots: { name: string }[]; layout: Block 
     return out;
   };
   const prop = (block: Block, key: string) => block.props?.[key];
-  const addSlots = (title: string | undefined, names: unknown[], tall = false, collapsible = false) => {
+  const addSlots = (title: string | undefined, names: unknown[], tall = false) => {
     const slots = take(names);
-    if (slots.length === 0) return;
-    // Blocks that share a section title (a template's `formSection`) are gathered into one collapsible section.
-    const last = plan[plan.length - 1];
-    if (collapsible && last?.type === 'slots' && last.collapsible && last.title === title) last.slots.push(...slots);
-    else plan.push({ type: 'slots', ...(title ? { title } : {}), slots, ...(tall ? { tall: true } : {}), ...(collapsible ? { collapsible: true } : {}) });
+    if (slots.length > 0) target.push({ type: 'slots', ...(title ? { title } : {}), slots, ...(tall ? { tall: true } : {}) });
   };
 
-  const walk = (block: Block) => {
+  const walk = (block: Block, inherited?: string) => {
+    const own = block.section !== undefined && sectionItems.has(block.section) ? block.section : inherited;
+    target = own !== undefined ? (sectionItems.get(own) as PlanItem[]) : plan;
     switch (block.block) {
       case 'stack':
       case 'columns':
-        (block.children ?? []).forEach(walk);
+        (block.children ?? []).forEach((child) => walk(child, own));
         return;
       case 'section-bar':
-        if (typeof prop(block, 'text') === 'string') plan.push({ type: 'bar', text: prop(block, 'text') as string });
+        if (typeof prop(block, 'text') === 'string') target.push({ type: 'bar', text: prop(block, 'text') as string });
         return;
       case 'field-grid': {
         const raw = prop(block, 'rows');
@@ -299,7 +314,7 @@ export function editorPlan(template: { slots: { name: string }[]; layout: Block 
           }
           if (cells.length > 0) rows.push(cells);
         }
-        if (rows.length > 0) plan.push({ type: 'grid', rows });
+        if (rows.length > 0) target.push({ type: 'grid', rows });
         return;
       }
       case 'letterhead':
@@ -313,25 +328,27 @@ export function editorPlan(template: { slots: { name: string }[]; layout: Block 
         return;
       case 'split-row': {
         const cells: PlanCell[] = take([prop(block, 'left'), prop(block, 'right')]).map((slot) => ({ slot, width: 1, shaded: false }));
-        if (cells.length > 0) plan.push({ type: 'grid', rows: [cells] });
+        if (cells.length > 0) target.push({ type: 'grid', rows: [cells] });
         return;
       }
       case 'ruled-lines':
         addSlots(undefined, [block.slot], true);
         return;
       default:
-        // A block may name a collapsible section of the form (props.formSection), for parts most documents leave empty.
-        if (typeof prop(block, 'formSection') === 'string') {
-          addSlots(prop(block, 'formSection') as string, [block.slot, prop(block, 'seed'), prop(block, 'number')], false, true);
-        } else {
-          if (block.slot) addSlots(undefined, [block.slot]);
-          addSlots(undefined, [prop(block, 'seed'), prop(block, 'number')]);
-        }
+        if (block.slot) addSlots(undefined, [block.slot]);
+        addSlots(undefined, [prop(block, 'seed'), prop(block, 'number'), prop(block, 'caption')]);
     }
   };
   walk(template.layout);
 
+  // Anything outside a section comes first, then each section in the order the template lists them.
+  const out: PlanItem[] = [...plan];
+  for (const def of sectionDefs) {
+    const items = sectionItems.get(def.id) as PlanItem[];
+    if (items.length > 0) out.push({ type: 'section', id: def.id, title: def.name, ...(def.open ? { open: true } : {}), items });
+  }
+
   const rest = template.slots.map((s) => s.name).filter((n) => !used.has(n));
-  if (rest.length > 0) plan.push({ type: 'slots', title: 'Other parts', slots: rest });
-  return plan;
+  if (rest.length > 0) out.push({ type: 'slots', title: 'Other parts', slots: rest });
+  return out;
 }

@@ -78,7 +78,7 @@ export class DocumentFiles {
       const slotsJson = (doc.slots as Record<string, Json> | undefined) ?? {};
       // The template decides which slots exist and in what order; any extra ones already in the file follow.
       const defs = template
-        ? template.slots.map((s) => ({ name: s.name, kind: s.kind, required: s.required === true, label: s.label ?? '' }))
+        ? template.slots.map((s) => ({ name: s.name, kind: s.kind, required: s.required === true, label: s.label ?? '', ...(s.maxLength ? { maxLength: s.maxLength } : {}) }))
         : [];
       for (const name of Object.keys(slotsJson)) {
         if (!defs.some((d) => d.name === name)) defs.push({ name, kind: (slotsJson[name].kind as SlotView['kind']) ?? 'value', required: false, label: '' });
@@ -209,6 +209,8 @@ export class DocumentFiles {
     if (!found.ok) return found;
     const { doc, slots } = found.value;
     const kind = this.slotKind(String(doc.template), slotName, slots[slotName]);
+    const limit = this.templates()[String(doc.template)]?.slots.find((x) => x.name === slotName)?.maxLength;
+    if (limit && text.length > limit) return fail(`This part can hold at most ${limit} characters.`);
     if (kind === 'value') {
       slots[slotName] = { ...(slots[slotName] ?? {}), kind: 'value', value: text };
       this.writeDoc(id, doc);

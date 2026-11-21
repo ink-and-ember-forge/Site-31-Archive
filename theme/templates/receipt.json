@@ -65,6 +65,17 @@
       "name": "barcodeNumber",
       "kind": "value",
       "label": "Number printed under the barcode"
+    },
+    {
+      "name": "qr",
+      "kind": "value",
+      "label": "QR code message (a phone can scan it)",
+      "maxLength": 300
+    },
+    {
+      "name": "qrCaption",
+      "kind": "value",
+      "label": "Text under the QR code"
     }
   ],
   "layout": {
@@ -75,29 +86,32 @@
         "slot": "logo",
         "props": {
           "width": "34%"
-        }
+        },
+        "section": "heading"
       },
       {
         "block": "title",
         "slot": "store",
         "props": {
           "size": "large"
-        }
+        },
+        "section": "heading"
       },
       {
         "block": "paragraph",
         "slot": "address",
         "props": {
           "align": "center"
-        }
+        },
+        "section": "heading"
       },
       {
         "block": "paragraph",
         "slot": "details",
         "props": {
-          "align": "center",
-          "formSection": "Header details"
-        }
+          "align": "center"
+        },
+        "section": "heading"
       },
       {
         "block": "rule"
@@ -107,14 +121,16 @@
         "props": {
           "left": "date",
           "right": "time"
-        }
+        },
+        "section": "topline"
       },
       {
         "block": "field-row",
         "slot": "reference",
         "props": {
           "label": "Ref"
-        }
+        },
+        "section": "topline"
       },
       {
         "block": "rule"
@@ -123,52 +139,84 @@
         "block": "items-list",
         "slot": "items",
         "props": {
-          "includedTaxLines": false
-        }
+          "includedTaxLines": false,
+          "savings": true
+        },
+        "section": "body"
       },
       {
         "block": "tender",
-        "slot": "items"
+        "slot": "items",
+        "section": "body"
       },
       {
         "block": "rule"
       },
       {
         "block": "tax-table",
-        "slot": "items"
+        "slot": "items",
+        "section": "body"
       },
       {
         "block": "paragraph",
         "slot": "payment",
         "props": {
-          "align": "left",
-          "formSection": "Payment details"
-        }
+          "align": "left"
+        },
+        "section": "footer"
       },
       {
         "block": "paragraph",
         "slot": "notes",
         "props": {
-          "align": "center",
-          "formSection": "Notes and closing message"
-        }
+          "align": "center"
+        },
+        "section": "footer"
       },
       {
         "block": "caption",
         "slot": "footer",
-        "props": {
-          "formSection": "Notes and closing message"
-        }
+        "section": "footer"
       },
       {
         "block": "barcode",
         "props": {
           "seed": "reference",
-          "number": "barcodeNumber",
-          "formSection": "Notes and closing message"
+          "number": "barcodeNumber"
+        },
+        "section": "footer"
+      },
+      {
+        "block": "qr-code",
+        "slot": "qr",
+        "section": "footer",
+        "props": {
+          "caption": "qrCaption",
+          "width": "28%"
         }
       }
     ]
   },
-  "defaultWidth": 0.17
+  "defaultWidth": 0.17,
+  "sections": [
+    {
+      "id": "heading",
+      "name": "Heading",
+      "open": true
+    },
+    {
+      "id": "topline",
+      "name": "Top line",
+      "open": true
+    },
+    {
+      "id": "body",
+      "name": "Main body",
+      "open": true
+    },
+    {
+      "id": "footer",
+      "name": "Footer"
+    }
+  ]
 }

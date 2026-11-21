@@ -271,6 +271,27 @@ details, payment details, notes, closing message, barcode number) sit in collaps
 template can do the same. Older single-rate receipts open as one category "T" and save in the new form with the same figures. Saving never drops
 the new fields, so the step 1 warning is gone. Paper wear remains a later step.
 
+## 2026-11-21: Receipt round two approved; step 1 (format and maths) built
+
+Approved: discounts under an item (reducing its line, tax on the net), printed text overrides with a warning in the tool when they differ from the worked-out
+figure, a real scannable QR code from a message, and form sections that organise the form only. The barcode stays decorative. Step 1 adds discounts, item
+and receipt overrides, and computed total savings; all additive, `formatVersion` 1. `lineMinor` now means the amount after discounts (`grossMinor` is before).
+The tool preserves what it cannot yet edit when saving, so nothing is lost before step 3. Sections, QR and the viewer are step 2. Style picker and receipt looks are the next round.
+
+## 2026-11-21: Receipt round two, step 2 (viewer and template) built
+
+Viewer: discount lines under items, total savings, printed overrides (item, subtotal, tax, total, change, savings), a real scannable QR code and bars that follow the
+barcode number. Templates may declare `sections` (with an optional `open`) and blocks join one with `section`; the form shows each as a collapsible group,
+replacing the earlier `formSection`. The QR uses `qrcode-generator` 2.0.4 (MIT, pinned, about 10 kB gzipped), and its output was decoded from a screenshot to check it scans.
+Messages are limited to 300 characters. The tool for editing the new fields is step 3.
+
+## 2026-11-21: Receipt round two, step 3 (the tool) built
+
+The tool edits discounts (label and amount, with a limit that keeps them within the line), printed text on items, and printed overrides for the subtotal, each category's
+tax, total, savings and change, each with a note saying whether it differs from the worked-out figure. The QR message and caption are ordinary boxes, and a template slot
+may now set `maxLength` (300 for the QR message), enforced in the tool and in the file layer. The form is grouped by the template's sections. Style picker and receipt looks
+are the next round.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,

@@ -71,7 +71,13 @@ export function lintTemplate(template: Template): string[] {
   for (const ref of new Set(slotRefs(template.layout))) {
     if (!names.has(ref)) problems.push(`the layout refers to slot "${ref}", which the template does not define`);
   }
+  const sectionIds = new Set<string>();
+  for (const section of template.sections ?? []) {
+    if (sectionIds.has(section.id)) problems.push(`section "${section.id}" is defined twice`);
+    sectionIds.add(section.id);
+  }
   for (const block of walkBlocks(template.layout)) {
+    if (block.section !== undefined && !sectionIds.has(block.section)) problems.push(`a block uses section "${block.section}", which the template does not define`);
     if (!isKnownBlock(block.block)) problems.push(`the layout uses a block that does not exist: "${block.block}"`);
   }
   return problems;

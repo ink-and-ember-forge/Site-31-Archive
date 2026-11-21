@@ -330,4 +330,26 @@ describe('richer receipts', () => {
     expect(r.warnings).toEqual([]);
     expect(r.casefile.documents.find((d) => d.id === 'receipt')!.slots.items).toEqual(items);
   });
+
+  it('loads discounts and printed overrides exactly as written', async () => {
+    const items = {
+      kind: 'items',
+      taxes: [{ code: 'A', rate: 20 }],
+      overrides: { total: 'VOID' },
+      items: [{ name: 'PLACEHOLDER', price: 10, discounts: [{ label: 'SAVE', amount: 1 }], tax: 'A', printed: '1O.00' }],
+    };
+    const r = await loadCasefile(await sampleWith({ 'documents/receipt.json': receiptDoc({ items }) }));
+    if (!r.ok) throw new Error('should load');
+    expect(r.warnings).toEqual([]);
+    expect(r.casefile.documents.find((d) => d.id === 'receipt')!.slots.items).toEqual(items);
+  });
+
+  it('keeps the receipt when a discount and an override are bad, with a reason for each', async () => {
+    const items = { kind: 'items', overrides: { total: 5 }, items: [{ name: 'GOOD', price: 5, discounts: [{ amount: 9 }] }] };
+    const r = await loadCasefile(await sampleWith({ 'documents/receipt.json': receiptDoc({ items }) }));
+    if (!r.ok) throw new Error('should load');
+    expect(r.warnings).toHaveLength(2);
+    const slot = r.casefile.documents.find((d) => d.id === 'receipt')!.slots.items as { items: { discounts?: unknown }[] };
+    expect(slot.items[0].discounts).toBeUndefined();
+  });
 });

@@ -1,9 +1,9 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { computeTotals, formatMoney, formatRate, lineMinor, parsePriceText, parseQuantityText } from '@archive/casefile/money';
+  import { computeTotals, formatMoney, formatRate, lineMinor, parsePriceText, parseQuantityText, printedDiffers } from '@archive/casefile/money';
   import type { SlotView } from '../../src/shared/api';
   import type { Autosave, Now } from './lib/actions';
-  import { buildContent, draftFrom, moveRow, newCategory, newRow, usesDetails, type Draft, type Row } from './lib/items';
+  import { buildContent, draftFrom, moveRow, newCategory, newDiscount, newRow, usesDetails, type Draft, type Row } from './lib/items';
 
   let { docId, slot, label, autosave, now }: { docId: string; slot: SlotView; label: string; autosave: Autosave; now: Now } = $props();
 
@@ -30,6 +30,24 @@
   }
   const fromQuantity = (row: Row) => row.quantityText.trim() !== '' && row.unitPriceText.trim() !== '';
 
+  function addDiscount(row: Row) {
+    row.discounts.push(newDiscount());
+    // an empty discount is only space to type in, so there is nothing to save yet
+  }
+  function removeDiscount(row: Row, key: number) {
+    row.discounts = row.discounts.filter((d) => d.key !== key);
+    changed();
+  }
+
+  /** The note under a figure that has printed text: what it differs from, or that it matches. */
+  function noteFor(printed: string, minor: number | undefined): { differs: boolean; text: string } | undefined {
+    const text = printed.trim();
+    if (text === '' || minor === undefined) return undefined;
+    return printedDiffers(text, minor)
+      ? { differs: true, text: `Printed differs from the worked-out ${money(minor)}. That is fine if it is deliberate.` }
+      : { differs: false, text: 'Same as the worked-out figure.' };
+  }
+
   const changed = () =>
     autosave(`items:${slot.name}`, () => {
       const result = buildContent(draft);
@@ -55,6 +73,7 @@
   function removeCategory(key: number) {
     const gone = draft.categories.find((c) => c.key === key)?.code.trim();
     draft.categories = draft.categories.filter((c) => c.key !== key);
+    if (gone) delete draft.overrides.tax[gone];
     // Items that used it become untaxed, which is what the saved receipt would do anyway.
     if (gone) for (const r of draft.rows) if (r.taxCode === gone) r.taxCode = '';
     changed();
@@ -62,7 +81,13 @@
   // Renaming a category's code keeps the items that used it pointing at it.
   function recode(key: number, before: string) {
     const after = draft.categories.find((c) => c.key === key)?.code.trim() ?? '';
-    if (before && after && before !== after) for (const r of draft.rows) if (r.taxCode === before) r.taxCode = after;
+    if (before && after && before !== after) {
+      for (const r of draft.rows) if (r.taxCode === before) r.taxCode = after;
+      if (before in draft.overrides.tax) {
+        draft.overrides.tax[after] = draft.overrides.tax[before];
+        delete draft.overrides.tax[before];
+      }
+    }
     changed();
   }
   let codeBefore = '';
@@ -118,7 +143,7 @@
     {/if}
 
     <h5>Items</h5>
-    <label class="check"><input type="checkbox" aria-label="Show codes and quantities" bind:checked={details} /><span>Show product codes and quantities</span></label>
+    <label class="check"><input type="checkbox" aria-label="Show codes and quantities" bind:checked={details} /><span>Show more for each item: codes, quantities, discounts and printed text</span></label>
     <table>
       <thead>
         <tr><th>Item</th><th class="price">Price</th>{#if pickable.length > 0}<th class="taxcol">Tax</th>{/if}<th></th></tr>
@@ -156,6 +181,17 @@
                   <label><span>Quantity</span><input aria-label="Item {i + 1} quantity" inputmode="decimal" bind:value={row.quantityText} oninput={changed} aria-invalid={built.rowErrors[row.key] ? 'true' : undefined} /></label>
                   <label><span>Unit price</span><input aria-label="Item {i + 1} unit price" inputmode="decimal" bind:value={row.unitPriceText} oninput={changed} aria-invalid={built.rowErrors[row.key] ? 'true' : undefined} /></label>
                 </div>
+                {#each row.discounts as d, di (d.key)}
+                  <div class="detail discount">
+                    <label><span>Discount {di + 1}</span><input aria-label="Item {i + 1} discount {di + 1} label" placeholder="MULTIBUY" maxlength="30" bind:value={d.label} oninput={changed} /></label>
+                    <label class="amount"><span>Amount off</span><input aria-label="Item {i + 1} discount {di + 1} amount" inputmode="decimal" bind:value={d.amountText} oninput={changed} aria-invalid={built.rowErrors[row.key] ? 'true' : undefined} /></label>
+                    <button class="small" aria-label="Remove discount {di + 1} from item {i + 1}" onclick={() => removeDiscount(row, d.key)}>×</button>
+                  </div>
+                {/each}
+                <div class="detail">
+                  <button class="small wide" aria-label="Add a discount to item {i + 1}" onclick={() => addDiscount(row)}>Add discount</button>
+                  <label><span>Printed as (optional)</span><input aria-label="Item {i + 1} printed as" placeholder="Leave empty to print the real amount" maxlength="30" bind:value={row.printed} oninput={changed} /></label>
+                </div>
               </td>
             </tr>
           {/if}
@@ -185,20 +221,48 @@
     {#if built.held > 0}<p class="held">Not saved yet: finish what is marked above. Nothing is lost, and it saves as soon as it is valid.</p>{/if}
 
     {#if totals}
-      <dl class="totals" aria-label="Totals, worked out for you">
-        {#if totals.hasTax}
-          <dt>Subtotal</dt><dd>{money(totals.subtotal)}</dd>
-          {#each totals.categories as row}
-            <dt>{row.code} · {row.label} {formatRate(row.rate)}%{totals.taxMode === 'included' ? ' (included)' : ''}</dt><dd>{money(row.tax)}</dd>
-          {/each}
-        {/if}
-        <dt class="total">Total</dt><dd class="total">{money(totals.total)}</dd>
-        {#if totals.tendered !== undefined}
-          <dt>{totals.tenderMethod ?? 'Handed over'}</dt><dd>{money(totals.tendered)}</dd>
-          <dt>Change due</dt><dd>{money(totals.change ?? 0)}</dd>
-        {/if}
-      </dl>
-      <p class="help">Totals are worked out for you and shown on the receipt the same way.</p>
+      <table class="totals" aria-label="Totals, worked out for you">
+        <thead><tr><th></th><th class="num">Worked out</th><th>Printed as (optional)</th></tr></thead>
+        <tbody>
+          {#if totals.hasTax}
+            <tr>
+              <th scope="row">Subtotal</th><td class="num">{money(totals.subtotal)}</td>
+              <td><input aria-label="Printed subtotal" maxlength="30" bind:value={draft.overrides.subtotal} oninput={changed} /></td>
+            </tr>
+            {#if noteFor(draft.overrides.subtotal, totals.subtotal)}{@const n = noteFor(draft.overrides.subtotal, totals.subtotal)!}<tr class="note" class:differs={n.differs}><td colspan="3">{n.text}</td></tr>{/if}
+            {#each totals.categories as row (row.code)}
+              <tr>
+                <th scope="row">{row.code} · {row.label} {formatRate(row.rate)}%{totals.taxMode === 'included' ? ' (included)' : ''}</th>
+                <td class="num">{money(row.tax)}</td>
+                <td><input aria-label="Printed tax for {row.code}" maxlength="30" value={draft.overrides.tax[row.code] ?? ''} oninput={(e) => { draft.overrides.tax[row.code] = e.currentTarget.value; changed(); }} /></td>
+              </tr>
+              {#if noteFor(draft.overrides.tax[row.code] ?? '', row.tax)}{@const n = noteFor(draft.overrides.tax[row.code] ?? '', row.tax)!}<tr class="note" class:differs={n.differs}><td colspan="3">{n.text}</td></tr>{/if}
+            {/each}
+          {/if}
+          <tr class="total">
+            <th scope="row">Total</th><td class="num">{money(totals.total)}</td>
+            <td><input aria-label="Printed total" maxlength="30" bind:value={draft.overrides.total} oninput={changed} /></td>
+          </tr>
+          {#if noteFor(draft.overrides.total, totals.total)}{@const n = noteFor(draft.overrides.total, totals.total)!}<tr class="note" class:differs={n.differs}><td colspan="3">{n.text}</td></tr>{/if}
+          {#if totals.savings > 0 || draft.overrides.savings.trim() !== ''}
+            <tr>
+              <th scope="row">Total savings</th><td class="num">{money(totals.savings)}</td>
+              <td><input aria-label="Printed savings" maxlength="30" bind:value={draft.overrides.savings} oninput={changed} /></td>
+            </tr>
+            {#if noteFor(draft.overrides.savings, totals.savings)}{@const n = noteFor(draft.overrides.savings, totals.savings)!}<tr class="note" class:differs={n.differs}><td colspan="3">{n.text}</td></tr>{/if}
+          {/if}
+          {#if totals.tendered !== undefined}
+            <tr><th scope="row">{totals.tenderMethod ?? 'Handed over'}</th><td class="num">{money(totals.tendered)}</td><td></td></tr>
+            <tr>
+              <th scope="row">Change due</th><td class="num">{money(totals.change ?? 0)}</td>
+              <td><input aria-label="Printed change" maxlength="30" bind:value={draft.overrides.change} oninput={changed} /></td>
+            </tr>
+            {#if noteFor(draft.overrides.change, totals.change ?? 0)}{@const n = noteFor(draft.overrides.change, totals.change ?? 0)!}<tr class="note" class:differs={n.differs}><td colspan="3">{n.text}</td></tr>{/if}
+          {/if}
+        </tbody>
+      </table>
+      {#if built.overrideError}<p class="error" role="alert">{built.overrideError}</p>{/if}
+      <p class="help">Totals are worked out for you and shown on the receipt the same way. Anything you type under "Printed as" is printed instead, exactly as typed, but the worked-out figure is still used for change and everything else.</p>
     {/if}
   {/if}
 </section>
@@ -242,8 +306,15 @@
   .held { color: var(--warn); font-size: 0.8rem; margin: 0.5rem 0; }
   .help { color: var(--muted); font-size: 0.85rem; margin: 0.3rem 0 0.7rem; }
   pre { background: #1a1510; padding: 0.5rem; border-radius: 4px; white-space: pre-wrap; font-size: 0.8rem; max-height: 8rem; overflow: auto; }
-  .totals { display: grid; grid-template-columns: 1fr auto; gap: 0.15rem 1rem; margin: 0.8rem 0 0; padding: 0.5rem 0.7rem; background: #2c241c; border-radius: 4px; }
-  .totals dt, .totals dd { margin: 0; }
-  .totals dd { text-align: right; }
-  .total { font-weight: 700; border-top: 1px solid var(--line); padding-top: 0.2rem; margin-top: 0.2rem; }
+  .totals { width: 100%; border-collapse: collapse; margin: 0.8rem 0 0; background: #2c241c; border-radius: 4px; }
+  .totals th, .totals td { padding: 0.25rem 0.5rem; font-weight: normal; text-align: left; vertical-align: middle; }
+  .totals thead th { font-size: 0.72rem; color: var(--muted); }
+  .totals .num { text-align: right; white-space: nowrap; }
+  .totals td input { padding: 0.25rem 0.4rem; }
+  .totals .total th, .totals .total td { font-weight: 700; border-top: 1px solid var(--line); }
+  .totals .note td { font-size: 0.78rem; color: var(--muted); padding-top: 0; }
+  .totals .note.differs td { color: var(--warn); }
+  .discount .amount { flex: 0 0 6rem; }
+  .discount button { align-self: flex-end; }
+  .wide { white-space: nowrap; align-self: flex-end; }
 </style>

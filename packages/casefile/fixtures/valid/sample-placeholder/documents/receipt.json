@@ -47,7 +47,13 @@
           "name": "PLACEHOLDER ITEM A",
           "code": "0001",
           "price": 4.5,
-          "tax": "A"
+          "tax": "A",
+          "discounts": [
+            {
+              "label": "PLACEHOLDER MULTIBUY",
+              "amount": 0.5
+            }
+          ]
         },
         {
           "name": "PLACEHOLDER ITEM B",
@@ -83,6 +89,14 @@
     "barcodeNumber": {
       "kind": "value",
       "value": "0000 0000 0000"
+    },
+    "qr": {
+      "kind": "value",
+      "value": "PLACEHOLDER: this hidden message is sample content."
+    },
+    "qrCaption": {
+      "kind": "value",
+      "value": "SCAN ME \u00b7 PLACEHOLDER"
     }
   },
   "hotspots": [

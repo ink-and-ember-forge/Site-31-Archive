@@ -15,8 +15,8 @@
 {#if totals && totals.tendered !== undefined}
   <div class="tender">
     <div class="row"><span>{totals.tenderMethod ?? wordOf(block, 'tenderLabel', 'TENDER')}</span><span>{money(totals.tendered)}</span></div>
-    {#if (totals.change ?? 0) > 0}
-      <div class="row"><span>{wordOf(block, 'changeLabel', 'CHANGE DUE')}</span><span>{money(totals.change ?? 0)}</span></div>
+    {#if (totals.change ?? 0) > 0 || totals.printed.change}
+      <div class="row"><span>{wordOf(block, 'changeLabel', 'CHANGE DUE')}</span><span>{totals.printed.change ?? money(totals.change ?? 0)}</span></div>
     {/if}
   </div>
 {/if}

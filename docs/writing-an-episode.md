@@ -113,7 +113,7 @@ Each file in `documents/` describes one document:
 | Template | Slots |
 | --- | --- |
 | `witness-statement` | A letterhead (`crest`, `agency`, `agencyLines`, `formNumber`, `formRevision`), `title`, `subtitle`, an optional stamp (`stampText`, `stampDate`), the labelled boxes (`witnessName`, `homePhone`, `cellPhone`, `campusDept`, `jobPosition`, `witnessAddress`, `injuredName`, `dateOfAccident`, `witnessSignature`, `dateOfStatement`, `timeTaken`), the statement itself (`body`, Markdown, set on ruled lines), `takenBy` and `officeUse` |
-| `receipt` | `logo` (an image), `store`, `address`, `details`, `date`, `time`, `reference`, `items` (an item list, see below), `payment`, `notes`, `footer`, `barcodeNumber` |
+| `receipt` | `logo` (an image), `store`, `address`, `details`, `date`, `time`, `reference`, `items` (an item list, see below), `payment`, `notes`, `footer`, `barcodeNumber`, `qr` (a hidden message, drawn as a real QR code a phone can scan), `qrCaption` |
 | `typed` | `title` (a value), `body` (Markdown) |
 | `handwritten` | `body` (Markdown) |
 | `photograph` | `image` (an image), `caption` (a value) |
@@ -150,7 +150,7 @@ contain it). An item names a category with `"tax": "A"`, and an item with no `ta
 category and rounded to the penny. An item has either a `price`, or a `quantity` and a `unitPrice` (the line is then
 quantity times unit price, and the receipt prints "2.35 @ 1.99" under it). `code` is an optional product code. `tender`
 is what was handed over (`method` is printed as written); if it is more than the total, the change is shown.
-A negative price is a discount. A price with more than two decimals is rounded to the nearest penny, and an item with no
+An item can take money off with `"discounts": [{ "label": "MULTIBUY", "amount": 1 }]`; each is printed as a negative line under the item, and tax is worked out on what is left. An item's `"printed": "4.5O"` and the list's `"overrides"` (`subtotal`, `total`, `change`, `savings`, and `tax` by category code) print your own text in place of a worked-out figure, exactly as written (for a misprint, a smudge, or VOID); the real figures are still used for everything else. A negative price is also a discount. A price with more than two decimals is rounded to the nearest penny, and an item with no
 usable price is left out with a warning. Older receipts with a single `"tax": { "mode", "rate", "label" }` and
 `"taxable": true` on items still work.
 

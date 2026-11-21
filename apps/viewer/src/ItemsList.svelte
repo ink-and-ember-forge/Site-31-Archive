@@ -34,27 +34,35 @@
     {#each totals.lines as line}
       <div class="line">
         <span class="name">{#if line.code}<small class="code">{line.code}</small>{/if}{line.name}</span>
-        <span class="price">{money(line.minor)}</span>
+        <span class="price">{line.printed ?? money(line.grossMinor)}</span>
         <i class="mark">{markOf(line)}</i>
         {#if line.quantity !== undefined && line.unitMinor !== undefined}
           <span class="qty">{line.quantity} @ {money(line.unitMinor)}</span>
         {/if}
+        {#each line.discounts as d}
+          <span class="dlabel">{d.label ?? word('discountLabel', 'DISCOUNT')}</span>
+          <span class="price off">{money(-d.minor)}</span>
+          <i class="mark"></i>
+        {/each}
       </div>
     {/each}
   </div>
 
   <div class="sums">
     {#if totals.hasTax && taxLines}
-      <div class="sum"><span>{word('subtotalLabel', 'SUBTOTAL')}</span><span>{money(totals.subtotal)}</span></div>
+      <div class="sum"><span>{word('subtotalLabel', 'SUBTOTAL')}</span><span>{totals.printed.subtotal ?? money(totals.subtotal)}</span></div>
       {#each sumRows as row}
         {#if totals.taxMode === 'added'}
-          <div class="sum"><span>{row.label} {formatRate(row.rate)}% on {money(row.base)}</span><span>{money(row.tax)}</span></div>
+          <div class="sum"><span>{row.label} {formatRate(row.rate)}% on {money(row.base)}</span><span>{totals.printed.tax[row.code] ?? money(row.tax)}</span></div>
         {:else}
-          <div class="sum"><span>{word('includesLabel', 'INCLUDES')} {row.label} {formatRate(row.rate)}%</span><span>{money(row.tax)}</span></div>
+          <div class="sum"><span>{word('includesLabel', 'INCLUDES')} {row.label} {formatRate(row.rate)}%</span><span>{totals.printed.tax[row.code] ?? money(row.tax)}</span></div>
         {/if}
       {/each}
     {/if}
-    <div class="sum total"><span>{word('totalLabel', 'TOTAL')}</span><span>{money(totals.total)}</span></div>
+    <div class="sum total"><span>{word('totalLabel', 'TOTAL')}</span><span>{totals.printed.total ?? money(totals.total)}</span></div>
+    {#if opts.savings === true && (totals.savings > 0 || totals.printed.savings)}
+      <div class="sum"><span>{word('savingsLabel', 'TOTAL SAVINGS')}</span><span>{totals.printed.savings ?? money(totals.savings)}</span></div>
+    {/if}
   </div>
   {#if anyTaxable}<p class="legend">{mark} = {word('taxableLegend', 'taxable item')}</p>{/if}
 {/if}
@@ -63,7 +71,9 @@
   .items { margin: 1.4cqw 0; }
   .line { display: grid; grid-template-columns: 1fr auto 2.4cqw; gap: 0 0.8cqw; padding: 0.35cqw 0; }
   .code { margin-right: 1.2cqw; color: color-mix(in srgb, var(--ink) 60%, transparent); font-size: 0.85em; }
-  .qty { grid-column: 1 / 3; padding-left: 2.4cqw; font-size: 0.88em; color: color-mix(in srgb, var(--ink) 70%, transparent); }
+  .dlabel { grid-column: 1; padding-left: 2.4cqw; font-size: 0.88em; }
+  .off { color: color-mix(in srgb, var(--ink) 80%, transparent); }
+  .qty { grid-column: 1 / -1; padding-left: 2.4cqw; font-size: 0.88em; color: color-mix(in srgb, var(--ink) 70%, transparent); }
   .name { overflow-wrap: anywhere; }
   .price { text-align: right; white-space: nowrap; }
   .mark { font-style: normal; color: color-mix(in srgb, var(--ink) 65%, transparent); }

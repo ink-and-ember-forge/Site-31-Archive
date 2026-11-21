@@ -136,3 +136,119 @@ Details settled while building step 3:
 - Nothing is saved until every box is valid ("Not saved yet", with the reason), as before: a half-typed category, quantity, price or tender never drops anything.
 - A template block may name a collapsible section of the form with `formSection`; blocks that share a title are gathered into one. The receipt uses it for header details, payment details, and notes and closing message. A section opens when it already has something written.
 - An older receipt whose payment line is a one-line value is shown in the text box, and becomes text when edited.
+
+---
+
+# Round two: discounts, overrides, sections, barcode and QR
+
+**Status: approved by the author on 2026-11-21. All three steps are built.** One bug fix (a
+form section closing itself while typed in) shipped separately.
+
+## Decisions already made (author, 2026-11-21)
+
+- **Discounts:** under an item, reducing it. The item's tax category applies to the amount after discount. A basket-wide coupon stays a negative item.
+- **Overrides:** printed text that replaces a worked-out figure, with a warning in the tool when it differs from the real figure.
+- **QR code:** real and scannable by a phone camera, holding a message the author writes.
+- **Sections:** organise the form only. The paper looks the same.
+- **Left to the next round:** a style picker and a few receipt looks (paper width, font, header style, thermal fade), so receipts do not all look alike. Logos already work as an image slot.
+
+## Package format changes (additive; `formatVersion` stays 1)
+
+### 1. Discounts on an item
+
+```json
+{ "name": "PLACEHOLDER ITEM", "price": 4.50, "tax": "A",
+  "discounts": [{ "label": "MULTIBUY", "amount": 1.00 }] }
+```
+
+- `amount` is a positive number, printed as a negative line under the item. `label` is optional text.
+- The item's line becomes its price (or quantity x unit price) minus its discounts, and tax is worked out on that net line.
+- A discount that is not a positive price, or is larger than the line it sits on, is ignored with a reason.
+- A new computed figure, **total savings**, is the sum of all discounts. A template can print it ("TOTAL SAVINGS 1.00"). Negative items do not count as savings.
+
+### 2. Overrides of printed figures
+
+```json
+{ "kind": "items", "items": [ { "name": "TEA", "price": 4.5, "printed": "4.5O" } ],
+  "overrides": { "subtotal": "18.50", "total": "VOID", "change": "--.--", "tax": { "A": "3.3O" } } }
+```
+
+- `printed` on an item replaces the amount shown for that line. `overrides` replaces the subtotal, total, change, total savings, or the tax of one category (by its code).
+- An override is text, printed exactly as written (the currency symbol is not added, so a smudge or a missing symbol is possible).
+- Everything else still works from the real figures. Change is worked out from the real total, not the printed one.
+- The tool shows the real figure beside each override and warns "printed differs from worked out", so a discrepancy is always visible as deliberate.
+
+### 3. Sections on a template
+
+```json
+"sections": [{ "id": "heading", "name": "Heading" }, { "id": "topline", "name": "Top line" }, { "id": "body", "name": "Main body" }, { "id": "footer", "name": "Footer" }]
+```
+
+A block in the template's layout may carry `"section": "footer"`. The tool groups the form into one collapsible section per name, in order, and a part
+belongs to the section of the first block that uses it. A section opens by default when something in it is written. This replaces the one-off
+`formSection` setting from the first round. Templates without `sections` behave as now. The witness form keeps its printed section bars.
+
+### 4. Barcode and QR
+
+- The barcode keeps its printed number (`barcodeNumber`), and its bars now follow that number, so changing the number changes the pattern.
+  It stays a decorative pattern, never a real code.
+- A new `qr-code` part draws a real QR code from a slot `qr` (a message of up to 300 characters). It takes an optional printed caption (`qrCaption`,
+  for example "SCAN FOR SURVEY"). Making the QR reveal something inside the archive needs no new feature: a box hotspot over it can open a note or a
+  registry entry, as for any document.
+- The encoder is a small open-source library bundled into the viewer; I will check its licence and size when I build, and report them.
+
+## Viewer
+
+Discount lines under items (indented, with a minus), a total-savings line, override text wherever one is set, the QR code, and nothing different for
+receipts that use none of this.
+
+## Authoring tool
+
+- Each item gets an "Add discount" row (label and amount), and a "Printed as" box next to the item price.
+- Each computed figure in the totals gets a "Printed as" box and the "differs from worked out" warning.
+- The form is grouped by the template's sections, in order, each collapsible and kept as the author left it.
+- A "QR message" box and caption under the barcode number, with a note that a phone can scan it.
+
+## Build order (each step shown before the next)
+
+1. Format, money and loader: discounts, overrides, savings, with tests (including odd rounding and mismatches).
+2. Viewer: discount lines, savings, overrides, QR, sections in the template data. Screenshots.
+3. Authoring tool: the new boxes, warnings, sections, QR message.
+
+## Open points
+
+1. **Real barcodes.** Making the barcode real (scannable, for example Code 128 from your digits) is possible, but we decided earlier it should never be
+   a real code, so one cannot accidentally match a real product. I propose to keep it decorative. Say if you want otherwise.
+2. **A QR code is readable by anyone with a phone**, so what you put in it is public in the same way as the rest of the episode.
+3. **Override of a tender or an item's quantity line** is not included; the printed line and the totals cover the cases that matter.
+
+## Progress (round two)
+
+| Step | Status |
+| --- | --- |
+| 1. Format, money and loader | **Built.** Discounts, printed text on items and overrides for the subtotal, total, change, savings and each category's tax, computed total savings, 19 more tests. Sections and the QR part come with step 2, since they are template and viewer work. |
+| 2. Viewer | **Built.** Discount lines, total savings, printed overrides, a real QR code, bars that follow the barcode number, and template sections (`sections` and a block's `section`). |
+| 3. Authoring tool | **Built.** Discount rows, "printed as" boxes on items and on every worked-out figure with a warning when they differ, a QR message box with a character count, sections as collapsible groups. |
+
+Details settled while building step 1:
+
+- `lineMinor` is now the amount after discounts; the old meaning (before discounts) is `grossMinor`. The tool's price box shows the gross amount.
+- Discounts count only if they fit: each must be a price above 0, together they may not take more than the line, a line that is not above zero takes none, and at most 5 per item. One that does not fit is ignored, with a reason, and the item stays.
+- Subtotal, tax and total all use the discounted lines. Total savings is the sum of the discounts that count; negative items do not count.
+- Printed text is limited to 30 characters. A printed tax for a category that does not exist is ignored with a reason.
+- `printedDiffers(text, figure)` decides whether the tool should warn: it compares only the digits and sign, so "£18.50" and "18,50" match 18.50, while "VOID", "--.--" and "18.5O" (a letter O) do not.
+
+Details settled while building step 2:
+
+- **Discounts and overrides in the viewer:** an item prints its price before discounts, then each discount as an indented negative line. Printed text replaces the amount it is set on. The tax table and the change line take their overrides too. A template switches the total-savings line on with `savings: true` on the items part.
+- **QR:** a real QR code (medium error correction, smallest size that fits, UTF-8), drawn as one crisp vector. I decoded the one on the sample receipt from a screenshot to confirm it scans back to the message. Messages are limited to 300 characters. The encoder is `qrcode-generator` 2.0.4 (MIT licence), pinned; it adds about 10 kB (gzipped) to the viewer.
+- **Barcode:** the bars follow the printed number when there is one, otherwise the old seed. Still decorative.
+- **Sections:** `sections` on a template (`id`, `name`, and an optional `open`), and `section` on a block, inherited by its children. The form shows one collapsible group per section, in the template's order, with anything outside a section first. A section opens if its template entry says `open` or something is already written in it, and then stays as the author leaves it. The theme build fails on a block in a section the template does not define. The receipt's sections are Heading, Top line, Main body and Footer; the witness form keeps its printed section bars. The earlier `formSection` setting is gone.
+
+Details settled while building step 3:
+
+- Each item's extra row (switched on by "Show more for each item") holds product code, quantity, unit price, its discounts (label and amount off, with an Add discount button) and a "Printed as" box. The price box keeps showing the price before discounts.
+- The totals box is a table with three columns: the figure, the worked-out value, and a "Printed as" box. Subtotal, each category's tax, total, total savings (when there are any) and change due each have one. A note under a filled box says either that it differs from the worked-out figure (shown in the warning colour) or that it matches it.
+- Renaming a tax category's code moves its printed tax, and removing a category removes it.
+- A discount must be a price above 0 and, together with the others, no more than the line; at most 5 per item; a free or negative line takes none. Otherwise the save is held with the reason, as for every other box.
+- A template slot may set `maxLength` (the receipt's QR message is 300). The tool limits the box, shows "n of 300 characters", and the file layer refuses longer text.

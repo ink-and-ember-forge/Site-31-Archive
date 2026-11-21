@@ -1,3 +1,4 @@
+import { planSlots } from '@archive/casefile/authoring';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -122,6 +123,18 @@ describe('editing content', () => {
     expect(slot.text).toBe('CARD ****0000');
     session.setSlotText('till-roll', 'payment', 'CARD ****0000\nAPPROVAL 000000');
     expect(read(folder, 'documents/till-roll.json').slots.payment).toEqual({ kind: 'markdown', text: 'CARD ****0000\nAPPROVAL 000000' });
+  });
+
+  it('refuses text longer than the template allows for a part (the QR message), and says how long it may be', async () => {
+    const { session, folder } = await episode();
+    session.addDocument('receipt', 'Till roll');
+    const slot = (await session.state()).documents.find((d) => d.id === 'till-roll')!.slots.find((x) => x.name === 'qr')!;
+    expect(slot.maxLength).toBe(300);
+    expect(session.setSlotText('till-roll', 'qr', 'x'.repeat(300)).ok).toBe(true);
+    const tooLong = session.setSlotText('till-roll', 'qr', 'x'.repeat(301));
+    expect(tooLong.ok).toBe(false);
+    expect(JSON.stringify(tooLong)).toContain('300');
+    expect(read(folder, 'documents/till-roll.json').slots.qr.value).toHaveLength(300);
   });
 
   it('keeps categories, codes, quantities and the tender when a list is saved and read back', async () => {
@@ -321,7 +334,8 @@ describe('item lists (receipts)', () => {
     const items = view.slots.find((s) => s.name === 'items')!;
     expect(items).toMatchObject({ kind: 'items', label: 'Items', required: true });
     expect(items.items).toEqual({ kind: 'items', items: [] });
-    expect(view.plan.some((p) => p.type === 'slots' && p.slots.includes('items'))).toBe(true);
+    expect(view.plan.flatMap(planSlots)).toContain('items');
+    expect(view.plan.filter((p) => p.type === 'section').map((p) => (p as { title: string }).title)).toEqual(['Heading', 'Top line', 'Main body', 'Footer']);
   });
 
   it('saves a list exactly, in a stable order, and reads it back', async () => {
