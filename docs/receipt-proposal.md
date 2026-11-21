@@ -141,8 +141,8 @@ Details settled while building step 3:
 
 # Round two: discounts, overrides, sections, barcode and QR
 
-**Status: proposal, waiting for the author's approval of the exact format below.** Nothing here is built, apart from one bug fix (a
-form section closing itself while typed in) that shipped separately.
+**Status: approved by the author on 2026-11-21. Step 1 of 3 (format, money and loader) is built; the viewer and the tool are next.** One bug fix (a
+form section closing itself while typed in) shipped separately.
 
 ## Decisions already made (author, 2026-11-21)
 
@@ -221,3 +221,20 @@ receipts that use none of this.
    a real code, so one cannot accidentally match a real product. I propose to keep it decorative. Say if you want otherwise.
 2. **A QR code is readable by anyone with a phone**, so what you put in it is public in the same way as the rest of the episode.
 3. **Override of a tender or an item's quantity line** is not included; the printed line and the totals cover the cases that matter.
+
+## Progress (round two)
+
+| Step | Status |
+| --- | --- |
+| 1. Format, money and loader | **Built.** Discounts, printed text on items and overrides for the subtotal, total, change, savings and each category's tax, computed total savings, 19 more tests. Sections and the QR part come with step 2, since they are template and viewer work. |
+| 2. Viewer | Next |
+| 3. Authoring tool | |
+
+Details settled while building step 1:
+
+- `lineMinor` is now the amount after discounts; the old meaning (before discounts) is `grossMinor`. The tool's price box shows the gross amount.
+- Discounts count only if they fit: each must be a price above 0, together they may not take more than the line, a line that is not above zero takes none, and at most 5 per item. One that does not fit is ignored, with a reason, and the item stays.
+- Subtotal, tax and total all use the discounted lines. Total savings is the sum of the discounts that count; negative items do not count.
+- Printed text is limited to 30 characters. A printed tax for a category that does not exist is ignored with a reason.
+- `printedDiffers(text, figure)` decides whether the tool should warn: it compares only the digits and sign, so "£18.50" and "18,50" match 18.50, while "VOID", "--.--" and "18.5O" (a letter O) do not.
+- Until step 3, the tool keeps a receipt's discounts, printed text and overrides exactly as they are when it saves, so nothing is lost, but it cannot edit them yet. Edit those by hand until then.

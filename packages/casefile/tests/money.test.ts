@@ -5,7 +5,10 @@ import {
   formatRate,
   MAX_ITEMS,
   normaliseChoices,
+  grossMinor,
   lineMinor,
+  acceptedDiscounts,
+  printedDiffers,
   normaliseItems,
   parseQuantityText,
   resolveTaxes,
@@ -554,5 +557,126 @@ describe('parseQuantityText', () => {
   it('refuses anything else, with a reason', () => {
     for (const bad of ['', 'x', '-1', '0', '0.000', '1.2345', '10001', '1e3', '2 kg']) expect(parseQuantityText(bad).ok, bad).toBe(false);
     expect((parseQuantityText('1.2345') as { reason: string }).reason).toContain('three decimal');
+  });
+});
+
+describe('discounts on an item', () => {
+  it('take money off the line, and the line is what is taxed', () => {
+    const t = computeTotals({
+      taxes: [{ code: 'A', rate: 20 }],
+      taxMode: 'added',
+      items: [{ name: 'X', price: 10, tax: 'A', discounts: [{ label: 'MULTIBUY', amount: 2.5 }, { amount: 0.5 }] }, { name: 'Y', price: 5 }],
+    });
+    expect(t.lines[0]).toMatchObject({ grossMinor: 1000, minor: 700, discounts: [{ label: 'MULTIBUY', minor: 250 }, { minor: 50 }] });
+    expect(t.subtotal).toBe(1200);
+    expect(t.categories[0]).toMatchObject({ base: 700, tax: 140 }); // 20% of 7.00, not of 10.00
+    expect(t.total).toBe(1340);
+    expect(t.savings).toBe(300);
+  });
+  it('work on a quantity line', () => {
+    const line: ItemLine = { name: 'a', quantity: 3, unitPrice: 1.5, discounts: [{ amount: 1 }] };
+    expect(lineMinor(line)).toBe(350);
+    expect(grossMinor(line)).toBe(450);
+  });
+  it('only count if they fit: never below zero, never on a free or negative line', () => {
+    expect(acceptedDiscounts({ price: 5, discounts: [{ amount: 3 }, { amount: 3 }, { amount: 2 }] }).map((d) => d.minor)).toEqual([300, 200]);
+    expect(acceptedDiscounts({ price: 5, discounts: [{ amount: 5 }] }).map((d) => d.minor)).toEqual([500]);
+    expect(acceptedDiscounts({ price: 0, discounts: [{ amount: 1 }] })).toEqual([]);
+    expect(acceptedDiscounts({ price: -2, discounts: [{ amount: 1 }] })).toEqual([]);
+    expect(lineMinor({ price: 5, discounts: [{ amount: 6 }] })).toBe(500);
+  });
+  it('ignore amounts that are not a price above zero', () => {
+    for (const amount of [0, -1, NaN, 2_000_000, '1' as unknown as number]) expect(acceptedDiscounts({ price: 5, discounts: [{ amount }] }), String(amount)).toEqual([]);
+  });
+  it('are exact where floating point is not', () => {
+    expect(lineMinor({ price: 0.3, discounts: [{ amount: 0.1 }, { amount: 0.1 }] })).toBe(10);
+  });
+  it('a receipt with none has no savings', () => {
+    expect(computeTotals({ items: [{ name: 'a', price: 1 }] }).savings).toBe(0);
+  });
+  it('included tax is also taken from the discounted line', () => {
+    const t = computeTotals({ taxes: [{ code: 'A', rate: 20 }], taxMode: 'included', items: [{ name: 'a', price: 12, tax: 'A', discounts: [{ amount: 2 }] }] });
+    expect(t.total).toBe(1000);
+    expect(t.categories[0].tax).toBe(167); // 10.00 * 20 / 120
+  });
+});
+
+describe('overrides (printed text in place of a figure)', () => {
+  it('are passed through exactly as written, and the real figures are untouched', () => {
+    const t = computeTotals({
+      taxes: [{ code: 'A', rate: 20 }],
+      items: [{ name: 'a', price: 10, tax: 'A', printed: ' 1O.00 ' }],
+      overrides: { total: 'VOID', change: '--.--', tax: { A: '2.0O', Z: 'ignored' } },
+    });
+    expect(t.lines[0].printed).toBe('1O.00');
+    expect(t.printed).toEqual({ total: 'VOID', change: '--.--', tax: { A: '2.0O', Z: 'ignored' } });
+    expect(t.total).toBe(1200);
+    expect(t.tax).toBe(200);
+  });
+  it('change is worked out from the real total, not the printed one', () => {
+    const t = computeTotals({ items: [{ name: 'a', price: 10 }], tender: { amount: 20 }, overrides: { total: '5.00' } });
+    expect(t.change).toBe(1000);
+  });
+  it('blank or non-text overrides are not printed', () => {
+    const t = computeTotals({ items: [], overrides: { total: '  ', subtotal: 5 as unknown as string } });
+    expect(t.printed).toEqual({ tax: {} });
+  });
+});
+
+describe('printedDiffers (is the printed text really a different figure?)', () => {
+  it('matches the same amount however it is written', () => {
+    for (const text of ['18.50', '18.5', '£18.50', ' $18.50 ', '18,50']) expect(printedDiffers(text, 1850), text).toBe(false);
+    expect(printedDiffers('1,234.50', 123450)).toBe(false);
+    expect(printedDiffers('-1.00', -100)).toBe(false);
+  });
+  it('flags a different amount, words, and look-alike characters', () => {
+    for (const text of ['18.51', '19', 'VOID', '--.--', '18.5O', '', '£']) expect(printedDiffers(text, 1850), text).toBe(true);
+  });
+});
+
+describe('normaliseItems with discounts and overrides', () => {
+  it('keeps valid ones exactly, in reading order', () => {
+    const raw = {
+      kind: 'items',
+      taxes: [{ code: 'A', rate: 20 }],
+      overrides: { total: 'VOID', tax: { A: '1.0O' } },
+      items: [{ name: 'X', price: 10, discounts: [{ label: 'SAVE', amount: 1 }, { amount: 2 }], tax: 'A', printed: '1O' }],
+    };
+    const { content, issues } = normaliseItems(raw);
+    expect(issues).toEqual([]);
+    expect(content).toEqual(raw);
+    expect(Object.keys(content.items[0])).toEqual(['name', 'price', 'discounts', 'tax', 'printed']);
+    expect(Object.keys(content)).toEqual(['kind', 'taxes', 'overrides', 'items']);
+  });
+  it('drops a discount that does not fit or is not a price, with a reason, and keeps the item', () => {
+    const { content, issues } = normaliseItems({ items: [{ name: 'X', price: 5, discounts: [{ amount: 3 }, { amount: 3 }, { amount: -1 }, 'x', { amount: 1, label: 5 }] }] });
+    expect(content.items[0].discounts).toEqual([{ amount: 3 }, { amount: 1 }]);
+    expect(issues).toHaveLength(4);
+    expect(issues.join('|')).toContain('cannot take more than the line');
+  });
+  it('ignores discounts that are not a list, extra ones, and discounts on a free line', () => {
+    expect(normaliseItems({ items: [{ name: 'X', price: 5, discounts: 'lots' }] }).issues[0]).toContain('must be a list');
+    const many = Array.from({ length: 7 }, () => ({ amount: 0.1 }));
+    const r = normaliseItems({ items: [{ name: 'X', price: 5, discounts: many }] });
+    expect(r.content.items[0].discounts).toHaveLength(5);
+    expect(r.issues[0]).toContain('only the first 5');
+    expect(normaliseItems({ items: [{ name: 'X', price: 0, discounts: [{ amount: 1 }] }] }).content.items[0].discounts).toBeUndefined();
+  });
+  it('ignores bad printed text and bad overrides, each with a reason, never losing items', () => {
+    const r = normaliseItems({
+      taxes: [{ code: 'A', rate: 1 }],
+      overrides: { total: '', change: 5, savings: 'x'.repeat(31), subtotal: 'ok', tax: { A: '', Q: 'x' } },
+      items: [{ name: 'a', price: 1, printed: 5 }, { name: 'b', price: 1, printed: 'x'.repeat(31) }],
+    });
+    expect(r.content.overrides).toEqual({ subtotal: 'ok' });
+    expect(r.content.items).toHaveLength(2);
+    expect(r.content.items.every((i) => i.printed === undefined)).toBe(true);
+    expect(r.issues).toHaveLength(7);
+    expect(normaliseItems({ overrides: 'x' }).issues[0]).toContain('must be an object');
+    expect(normaliseItems({ overrides: { tax: 'x' } }).issues[0]).toContain('category code');
+  });
+  it('an older receipt is read exactly as before', () => {
+    const raw = { kind: 'items', tax: { mode: 'added', rate: 20 }, items: [{ name: 'a', price: 1, taxable: true }] };
+    expect(normaliseItems(raw)).toEqual({ content: raw, issues: [] });
   });
 });

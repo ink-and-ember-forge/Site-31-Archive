@@ -9,13 +9,15 @@ import {
   MAX_METHOD_LENGTH,
   MAX_TAX_CODE_LENGTH,
   MAX_TAX_LABEL_LENGTH,
-  lineMinor,
+  grossMinor,
   parsePriceText,
   parseQuantityText,
   parseRateText,
   resolveTaxes,
+  type Discount,
   type ItemLine,
   type ItemsContent,
+  type Overrides,
   type TaxCategory,
   type TaxMode,
   type Tender,
@@ -31,6 +33,9 @@ export interface Row {
   unitPriceText: string;
   /** The code of the row's tax category, or '' for not taxed. */
   taxCode: string;
+  /** Kept as they are until the form can edit them, so saving a row never drops them. */
+  discounts?: Discount[];
+  printed?: string;
 }
 
 export interface CategoryRow {
@@ -49,6 +54,8 @@ export interface Draft {
   /** Blank amount means no tender. */
   tenderMethod: string;
   tenderAmount: string;
+  /** Printed overrides, kept as they are until the form can edit them. */
+  overrides?: Overrides;
 }
 
 let nextKey = 1;
@@ -77,7 +84,7 @@ export function draftFrom(content?: ItemsContent): Draft {
     categories: categories.map((c) => newCategory({ code: c.code, label: c.label ?? '', rateText: String(c.rate) })),
     rows: (content?.items ?? []).map((i) => {
       const priced = i.quantity !== undefined && i.unitPrice !== undefined;
-      const minor = lineMinor(i) ?? 0;
+      const minor = grossMinor(i) ?? 0;
       return newRow({
         name: i.name,
         code: i.code ?? '',
@@ -86,10 +93,13 @@ export function draftFrom(content?: ItemsContent): Draft {
         quantityText: priced ? String(i.quantity) : '',
         unitPriceText: priced ? amountToText(Math.round((i.unitPrice as number) * 100)) : '',
         taxCode: i.tax ?? (legacy && i.taxable ? LEGACY_TAX_CODE : ''),
+        ...(i.discounts ? { discounts: i.discounts } : {}),
+        ...(i.printed ? { printed: i.printed } : {}),
       });
     }),
     tenderMethod: content?.tender?.method ?? '',
     tenderAmount: content?.tender ? amountToText(Math.round(content.tender.amount * 100)) : '',
+    ...(content?.overrides ? { overrides: content.overrides } : {}),
   };
 }
 
@@ -177,13 +187,15 @@ export function buildContent(draft: Draft): Built {
       }
       item.price = price.value;
     }
-    if (lineMinor(item) === null) {
+    if (grossMinor(item) === null) {
       rowErrors[row.key] = 'This line comes to more than the largest price allowed.';
       held++;
       continue;
     }
     // A category that no longer exists simply means "not taxed".
+    if (row.discounts?.length) item.discounts = row.discounts;
     if (row.taxCode !== '' && known.has(row.taxCode)) item.tax = row.taxCode;
+    if (row.printed) item.printed = row.printed;
     items.push(item);
   }
   if (items.length > MAX_ITEMS) held++;
@@ -209,6 +221,7 @@ export function buildContent(draft: Draft): Built {
     ...(currency ? { currency } : {}),
     ...(categories.length > 0 ? { taxes: categories, taxMode: draft.taxMode } : {}),
     ...(tender ? { tender } : {}),
+    ...(draft.overrides ? { overrides: draft.overrides } : {}),
     items,
   };
   return {

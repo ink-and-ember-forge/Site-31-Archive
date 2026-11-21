@@ -206,6 +206,22 @@ describe('buildContent (what is saved)', () => {
     expect([totals.subtotal, totals.taxableBase, totals.tax, totals.total, totals.change]).toEqual([1850, 1650, 330, 2180, 320]);
   });
 
+  it('saving never drops discounts, printed text or overrides, which the form cannot edit yet', () => {
+    const original: ItemsContent = {
+      kind: 'items',
+      currency: '£',
+      taxes: [{ code: 'A', rate: 20 }],
+      taxMode: 'added',
+      overrides: { total: 'VOID', tax: { A: '1.0O' } },
+      items: [{ name: 'A', price: 10, discounts: [{ label: 'SAVE', amount: 1 }], tax: 'A', printed: '1O' }, { name: 'B', price: 2 }],
+    };
+    expect(buildContent(draftFrom(original)).content).toEqual(original);
+  });
+
+  it('shows the price before discounts when a row is opened for editing', () => {
+    expect(draftFrom({ kind: 'items', items: [{ name: 'A', price: 10, discounts: [{ amount: 1 }] }] }).rows[0].priceText).toBe('10');
+  });
+
   it('removing a category from the list leaves nothing behind in the saved file', () => {
     const d = draft({ categories: [], rows: [newRow({ name: 'A', priceText: '1', taxCode: 'A' })] });
     const { content } = buildContent(d);

@@ -271,6 +271,13 @@ details, payment details, notes, closing message, barcode number) sit in collaps
 template can do the same. Older single-rate receipts open as one category "T" and save in the new form with the same figures. Saving never drops
 the new fields, so the step 1 warning is gone. Paper wear remains a later step.
 
+## 2026-11-21: Receipt round two approved; step 1 (format and maths) built
+
+Approved: discounts under an item (reducing its line, tax on the net), printed text overrides with a warning in the tool when they differ from the worked-out
+figure, a real scannable QR code from a message, and form sections that organise the form only. The barcode stays decorative. Step 1 adds discounts, item
+and receipt overrides, and computed total savings; all additive, `formatVersion` 1. `lineMinor` now means the amount after discounts (`grossMinor` is before).
+The tool preserves what it cannot yet edit when saving, so nothing is lost before step 3. Sections, QR and the viewer are step 2. Style picker and receipt looks are the next round.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,
