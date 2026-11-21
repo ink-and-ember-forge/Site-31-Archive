@@ -2,26 +2,104 @@
   "template": "receipt",
   "role": "supporting",
   "slots": {
-    "store": { "kind": "value", "value": "PLACEHOLDER STORE" },
-    "address": { "kind": "markdown", "text": "1 Placeholder Street\nTel 000 0000" },
-    "date": { "kind": "value", "value": "2000-01-01" },
-    "time": { "kind": "value", "value": "00:00" },
-    "reference": { "kind": "value", "value": "Till 1 · 000001" },
+    "store": {
+      "kind": "value",
+      "value": "PLACEHOLDER STORE"
+    },
+    "address": {
+      "kind": "markdown",
+      "text": "1 Placeholder Street\nTel 000 0000"
+    },
+    "date": {
+      "kind": "value",
+      "value": "2000-01-01"
+    },
+    "time": {
+      "kind": "value",
+      "value": "00:00"
+    },
+    "reference": {
+      "kind": "value",
+      "value": "Till 1 \u00b7 000001"
+    },
     "items": {
       "kind": "items",
-      "currency": "£",
-      "tax": { "mode": "added", "rate": 20, "label": "VAT" },
+      "currency": "\u00a3",
+      "taxes": [
+        {
+          "code": "A",
+          "label": "VAT",
+          "rate": 20
+        },
+        {
+          "code": "B",
+          "label": "VAT",
+          "rate": 0
+        }
+      ],
+      "taxMode": "included",
+      "tender": {
+        "method": "CASH",
+        "amount": 50
+      },
       "items": [
-        { "name": "PLACEHOLDER ITEM A", "price": 4.5, "taxable": true },
-        { "name": "PLACEHOLDER ITEM B", "price": 2 },
-        { "name": "PLACEHOLDER ITEM C", "price": 12, "taxable": true }
+        {
+          "name": "PLACEHOLDER ITEM A",
+          "code": "0001",
+          "price": 4.5,
+          "tax": "A"
+        },
+        {
+          "name": "PLACEHOLDER ITEM B",
+          "code": "0002",
+          "quantity": 3,
+          "unitPrice": 0.75,
+          "tax": "B"
+        },
+        {
+          "name": "PLACEHOLDER ITEM C",
+          "code": "0003",
+          "price": 12,
+          "tax": "A"
+        }
       ]
     },
-    "payment": { "kind": "value", "value": "CARD ****0000" },
-    "footer": { "kind": "value", "value": "THANK YOU · PLACEHOLDER" }
+    "payment": {
+      "kind": "markdown",
+      "text": "CARD ****0000\nAPPROVAL 000000 \u00b7 TERMINAL 00"
+    },
+    "footer": {
+      "kind": "value",
+      "value": "THANK YOU \u00b7 PLACEHOLDER"
+    },
+    "details": {
+      "kind": "markdown",
+      "text": "Store 0000 \u00b7 Operator 00\nTrans 0000 \u00b7 Terminal 00"
+    },
+    "notes": {
+      "kind": "markdown",
+      "text": "PLACEHOLDER SAVINGS AND SURVEY TEXT"
+    },
+    "barcodeNumber": {
+      "kind": "value",
+      "value": "0000 0000 0000"
+    }
   },
   "hotspots": [
-    { "id": "receipt-note", "anchor": { "type": "rect", "x": 0.1, "y": 0.1, "width": 0.5, "height": 0.1 },
-      "target": { "type": "lightbox", "variant": "note", "text": "PLACEHOLDER handwritten note." } }
+    {
+      "id": "receipt-note",
+      "anchor": {
+        "type": "rect",
+        "x": 0.1,
+        "y": 0.1,
+        "width": 0.5,
+        "height": 0.1
+      },
+      "target": {
+        "type": "lightbox",
+        "variant": "note",
+        "text": "PLACEHOLDER handwritten note."
+      }
+    }
   ]
 }

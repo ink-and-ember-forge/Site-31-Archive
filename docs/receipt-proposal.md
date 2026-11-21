@@ -1,6 +1,6 @@
 # Richer receipts
 
-**Status: approved by the author on 2026-11-20. Step 1 of 3 (format, money and loader) is built; the viewer and the tool are next.** It answers the author's request (2026-11-20)
+**Status: approved by the author on 2026-11-20. Steps 1 and 2 of 3 (format and money; viewer) are built; the tool is next.** It answers the author's request (2026-11-20)
 for more information on the receipt, drawing on four real receipts (US supermarket, UK supermarket, UK discounter, a crumpled
 US discounter receipt).
 
@@ -106,7 +106,7 @@ logo, store, address, details, items, subtotal, tax table, total, tender, change
 | Step | Status |
 | --- | --- |
 | 1. Format, money and loader | **Built.** Tax categories, item fields, tender and change, exact maths, tolerant loader, 30 new tests. Nothing changes on screen yet. |
-| 2. Viewer | Next |
+| 2. Viewer | **Built.** Quantity lines, product codes and tax letters on items; per-category tax lines; new `tax-table` and `tender` parts; logo, details, notes and barcode number slots; the upgraded `receipt` template and sample. |
 | 3. Authoring tool | |
 
 Details settled while building step 1:
@@ -118,3 +118,13 @@ Details settled while building step 1:
 - When a receipt lists `taxes`, the older single `tax` setting and `"taxable"` marks are ignored with a warning. Older receipts load and total exactly as before.
 - Change is never negative; a payment below the total shows no change and invents nothing.
 - Until step 3, the authoring tool's item table does not know the new fields. It shows each row's line total as its price, and **saving a receipt that uses categories, codes or a tender from the tool would drop them**, so edit those receipts by hand until step 3 lands.
+
+Details settled while building step 2:
+
+- Two new parts: `tax-table` (rate, sales and tax per category used) and `tender` (what was paid, and change due). Both read the same item list as the items part, so nothing is typed twice and nothing can disagree.
+- Tax added on top is part of the sum, so it is always listed before the total. Tax already included is only information, so the receipt template switches those lines off (`includedTaxLines: false`) and prints the tax table instead. Another template can choose differently.
+- The `paragraph` part now also shows a plain one-line slot, so an older receipt whose payment line is a single value still renders. The `image` part takes an optional `width`, which is how the receipt's logo is kept small and centred.
+- The barcode can print a number beneath it (`barcodeNumber`), and stays a decorative pattern, never a real code.
+- Zero-rate categories do not add a line to the sums; the tax table still lists them.
+- An older single-rate receipt now uses the new template, so its tax shows in the tax table rather than as a line above the total.
+- The sample receipt is rebuilt from placeholder content (two categories with tax included, a quantity line, codes, cash tender).

@@ -256,6 +256,13 @@ stays 1, and older single-rate receipts load and total exactly as before (read a
 held in thousandths; each category is rounded on its own so the printed table adds up. Bad categories, item fields and tenders are dropped
 or ignored with a reason, never losing the receipt. The tool does not yet edit the new fields, so until step 3 such a receipt must be edited by hand.
 
+## 2026-11-21: Richer receipts, step 2 (viewer) built
+
+The receipt now shows what the four example receipts have: logo, store, address and detail lines, items with product codes, quantity at unit price
+lines and a tax letter, subtotal and tax lines (when tax is added on top), total, tender and change due, a tax table (rate, sales, tax per category),
+a payment block, notes, closing message, and a barcode with its number. New parts `tax-table` and `tender`; `paragraph` accepts a plain one-line slot
+and `image` an optional `width`, so older receipts still render. Still additive, `formatVersion` 1. Paper wear remains a later step.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,

@@ -6,6 +6,11 @@
   "aspect": 1.4,
   "slots": [
     {
+      "name": "logo",
+      "kind": "image",
+      "label": "Logo (optional)"
+    },
+    {
       "name": "store",
       "kind": "value",
       "label": "Store name"
@@ -14,6 +19,11 @@
       "name": "address",
       "kind": "markdown",
       "label": "Address and contact lines"
+    },
+    {
+      "name": "details",
+      "kind": "markdown",
+      "label": "Store, till and operator details"
     },
     {
       "name": "date",
@@ -38,18 +48,35 @@
     },
     {
       "name": "payment",
-      "kind": "value",
-      "label": "Payment line (for example: CARD)"
+      "kind": "markdown",
+      "label": "Payment details (card, approval code, terminal)"
+    },
+    {
+      "name": "notes",
+      "kind": "markdown",
+      "label": "Notes (savings, loyalty, survey, slogan)"
     },
     {
       "name": "footer",
       "kind": "value",
       "label": "Closing message"
+    },
+    {
+      "name": "barcodeNumber",
+      "kind": "value",
+      "label": "Number printed under the barcode"
     }
   ],
   "layout": {
     "block": "stack",
     "children": [
+      {
+        "block": "image",
+        "slot": "logo",
+        "props": {
+          "width": "34%"
+        }
+      },
       {
         "block": "title",
         "slot": "store",
@@ -60,6 +87,13 @@
       {
         "block": "paragraph",
         "slot": "address",
+        "props": {
+          "align": "center"
+        }
+      },
+      {
+        "block": "paragraph",
+        "slot": "details",
         "props": {
           "align": "center"
         }
@@ -86,16 +120,34 @@
       },
       {
         "block": "items-list",
+        "slot": "items",
+        "props": {
+          "includedTaxLines": false
+        }
+      },
+      {
+        "block": "tender",
         "slot": "items"
       },
       {
         "block": "rule"
       },
       {
-        "block": "caption",
+        "block": "tax-table",
+        "slot": "items"
+      },
+      {
+        "block": "paragraph",
         "slot": "payment",
         "props": {
           "align": "left"
+        }
+      },
+      {
+        "block": "paragraph",
+        "slot": "notes",
+        "props": {
+          "align": "center"
         }
       },
       {
@@ -105,7 +157,8 @@
       {
         "block": "barcode",
         "props": {
-          "seed": "reference"
+          "seed": "reference",
+          "number": "barcodeNumber"
         }
       }
     ]
