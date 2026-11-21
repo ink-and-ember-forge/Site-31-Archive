@@ -435,3 +435,16 @@ export function parseRateText(text: string): NumberParse {
   if (value > 100) return { ok: false, reason: 'The rate cannot be more than 100.' };
   return { ok: true, value };
 }
+
+/** Reads a quantity typed by the author: above 0, at most 3 decimals (so a weight such as 0.452 is exact). */
+export function parseQuantityText(text: string): NumberParse {
+  const raw = text.trim().replace(/\s+/g, '');
+  if (raw === '') return { ok: false, reason: 'Enter a quantity, like 2 or 0.452.' };
+  const t = !raw.includes('.') && (raw.match(/,/g) ?? []).length === 1 ? raw.replace(',', '.') : raw;
+  if (!/^\d+(\.\d+)?$/.test(t)) return { ok: false, reason: 'Type just the number, like 2 or 0.452.' };
+  if ((t.split('.')[1]?.length ?? 0) > 3) return { ok: false, reason: 'Use at most three decimal places.' };
+  const value = Number(t);
+  if (value <= 0) return { ok: false, reason: 'The quantity must be above 0.' };
+  if (value > MAX_QUANTITY) return { ok: false, reason: `The quantity cannot be more than ${MAX_QUANTITY.toLocaleString('en')}.` };
+  return { ok: true, value };
+}

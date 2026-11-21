@@ -89,7 +89,8 @@ export class DocumentFiles {
         if (!slot) return view;
         if (def.kind === 'value') view.text = typeof slot.value === 'string' ? slot.value : '';
         else if (def.kind === 'markdown') {
-          if (typeof slot.text === 'string') view.text = slot.text;
+          if (slot.kind === 'value') view.text = typeof slot.value === 'string' ? slot.value : ''; // an older one-line value in a text part
+          else if (typeof slot.text === 'string') view.text = slot.text;
           else if (typeof slot.file === 'string') {
             const file = this.resolveFile(slot.file);
             if (file && existsSync(file)) view.text = readFileSync(file, 'utf8');
@@ -213,7 +214,10 @@ export class DocumentFiles {
       this.writeDoc(id, doc);
     } else if (kind === 'markdown') {
       const existing = slots[slotName];
-      if (existing && typeof existing.text === 'string') {
+      if (existing?.kind === 'value') {
+        slots[slotName] = { kind: 'markdown', text }; // the part used to hold a one-line value; it becomes text
+        this.writeDoc(id, doc);
+      } else if (existing && typeof existing.text === 'string') {
         existing.text = text; // text kept inline in the document file stays inline
         this.writeDoc(id, doc);
       } else {

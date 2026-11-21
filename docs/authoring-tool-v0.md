@@ -139,3 +139,8 @@ After trying the tool, the author asked for forms that fit each kind of paper an
 - **A form shaped like the paper.** The witness statement's form has the same section bars and rows of labelled boxes as the printed form, with the statement as a larger text box. The form is worked out from the template, so any template added to the theme gets a matching form.
 - **A receipt item table.** One currency symbol, a tax setting (none, added on top, or already included) with a rate and a word for the receipt, a row per item (name, price, a "taxed" tick) that can be added, removed and reordered, and live subtotal, tax and total.
 - **New episodes start from the witness statement form**, so the first thing the author sees is the real look.
+
+## Receipts (added 2026-11-21)
+
+The receipt form has tax categories with a picker on each item, optional product codes and quantity at unit price, a payment (tender) box with
+live change, and collapsible sections for the header details, payment details and notes. See `receipt-proposal.md`.

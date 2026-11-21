@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { ItemsContent } from '@archive/casefile';
 import { computeTotals, normaliseItems } from '@archive/casefile';
-import { buildContent, draftFrom, moveRow, newRow, type Draft } from '../renderer/src/lib/items';
+import { buildContent, draftFrom, moveRow, newCategory, newRow, usesDetails, type Draft } from '../renderer/src/lib/items';
 
-const draft = (over: Partial<Draft> = {}): Draft => ({ currency: '', taxMode: 'none', rateText: '20', labelText: '', rows: [], ...over });
+const draft = (over: Partial<Draft> = {}): Draft => ({ currency: '', taxMode: 'added', categories: [], rows: [], tenderMethod: '', tenderAmount: '', ...over });
+const cats = () => [newCategory({ code: 'A', label: 'VAT', rateText: '20' }), newCategory({ code: 'B', label: 'VAT', rateText: '0' })];
 
 describe('draftFrom (opening a saved list for editing)', () => {
-  it('starts an empty receipt with no tax, a sensible rate ready, and no rows', () => {
-    const d = draftFrom(undefined);
-    expect(d).toMatchObject({ currency: '', taxMode: 'none', rateText: '20', rows: [] });
+  it('starts an empty receipt with no categories, no tender and no rows', () => {
+    expect(draftFrom(undefined)).toMatchObject({ currency: '', taxMode: 'added', categories: [], rows: [], tenderMethod: '', tenderAmount: '' });
   });
 
   it('shows prices as they would be typed', () => {
@@ -16,32 +16,94 @@ describe('draftFrom (opening a saved list for editing)', () => {
     expect(d.rows.map((r) => r.priceText)).toEqual(['4.50', '12', '0.05', '-2.50']);
   });
 
-  it('carries the currency, tax and taxable marks', () => {
-    const d = draftFrom({ kind: 'items', currency: '£', tax: { mode: 'included', rate: 7.5, label: 'VAT' }, items: [{ name: 'A', price: 1, taxable: true }, { name: 'B', price: 2 }] });
-    expect(d).toMatchObject({ currency: '£', taxMode: 'included', rateText: '7.5', labelText: 'VAT' });
-    expect(d.rows.map((r) => r.taxable)).toEqual([true, false]);
+  it('carries categories, the mode, each item\'s category, codes, quantities and the tender', () => {
+    const d = draftFrom({
+      kind: 'items',
+      currency: '£',
+      taxes: [{ code: 'A', label: 'VAT', rate: 7.5 }],
+      taxMode: 'included',
+      tender: { method: 'CASH', amount: 20 },
+      items: [{ name: 'A', code: '12', quantity: 2.5, unitPrice: 1.2, tax: 'A' }, { name: 'B', price: 2 }],
+    });
+    expect(d).toMatchObject({ currency: '£', taxMode: 'included', tenderMethod: 'CASH', tenderAmount: '20' });
+    expect(d.categories.map((c) => [c.code, c.label, c.rateText])).toEqual([['A', 'VAT', '7.5']]);
+    expect(d.rows[0]).toMatchObject({ code: '12', quantityText: '2.5', unitPriceText: '1.20', priceText: '', taxCode: 'A' });
+    expect(d.rows[1]).toMatchObject({ priceText: '2', taxCode: '' });
+  });
+
+  it('opens an older single-rate receipt as one category, "T", so a save keeps its tax', () => {
+    const original: ItemsContent = { kind: 'items', currency: '£', tax: { mode: 'added', rate: 20, label: 'VAT' }, items: [{ name: 'A', price: 10, taxable: true }, { name: 'B', price: 5 }] };
+    const d = draftFrom(original);
+    expect(d.categories.map((c) => c.code)).toEqual(['T']);
+    expect(d.rows.map((r) => r.taxCode)).toEqual(['T', '']);
+    const saved = buildContent(d).content!;
+    expect(saved.taxes).toEqual([{ code: 'T', label: 'VAT', rate: 20 }]);
+    expect(computeTotals(saved)).toMatchObject({ subtotal: 1500, tax: 200, total: 1700 }); // the same figures as before
+  });
+
+  it('says whether any row uses codes or quantities', () => {
+    expect(usesDetails(draft({ rows: [newRow({ name: 'A', priceText: '1' })] }))).toBe(false);
+    expect(usesDetails(draft({ rows: [newRow({ name: 'A', code: '1', priceText: '1' })] }))).toBe(true);
   });
 });
 
 describe('buildContent (what is saved)', () => {
   it('builds the list in reading order', () => {
     const built = buildContent(
-      draft({ currency: ' £ ', taxMode: 'added', rateText: '20%', labelText: ' VAT ', rows: [newRow({ name: ' Tea ', priceText: '4,50', taxable: true }), newRow({ name: 'Biscuits', priceText: '2' })] }),
+      draft({
+        currency: ' £ ',
+        taxMode: 'included',
+        categories: [newCategory({ code: ' A ', label: ' VAT ', rateText: '20%' })],
+        tenderMethod: ' cash ',
+        tenderAmount: '10,50',
+        rows: [newRow({ name: ' Tea ', code: ' 123 ', priceText: '4,50', taxCode: 'A' }), newRow({ name: 'Biscuits', priceText: '2' })],
+      }),
     );
-    expect(built.content).toEqual({ kind: 'items', currency: '£', tax: { mode: 'added', rate: 20, label: 'VAT' }, items: [{ name: 'Tea', price: 4.5, taxable: true }, { name: 'Biscuits', price: 2 }] });
-    expect(Object.keys(built.content!)).toEqual(['kind', 'currency', 'tax', 'items']);
+    expect(built.content).toEqual({
+      kind: 'items',
+      currency: '£',
+      taxes: [{ code: 'A', label: 'VAT', rate: 20 }],
+      taxMode: 'included',
+      tender: { method: 'cash', amount: 10.5 },
+      items: [{ name: 'Tea', code: '123', price: 4.5, tax: 'A' }, { name: 'Biscuits', price: 2 }],
+    });
+    expect(Object.keys(built.content!)).toEqual(['kind', 'currency', 'taxes', 'taxMode', 'tender', 'items']);
+    expect(Object.keys(built.content!.items[0])).toEqual(['name', 'code', 'price', 'tax']);
     expect(built.held).toBe(0);
   });
 
-  it('leaves out an empty currency, no tax, and blank rows', () => {
-    const built = buildContent(draft({ rows: [newRow(), newRow({ name: 'A', priceText: '1' }), newRow({ name: '  ', priceText: ' ' })] }));
+  it('leaves out an empty currency, no categories, no tender, and blank rows or categories', () => {
+    const built = buildContent(draft({ categories: [newCategory()], rows: [newRow(), newRow({ name: 'A', priceText: '1' }), newRow({ name: '  ', priceText: ' ' })] }));
     expect(built.content).toEqual({ kind: 'items', items: [{ name: 'A', price: 1 }] });
   });
 
-  it('keeps taxable marks even while tax is off, so switching it back on loses nothing', () => {
-    const built = buildContent(draft({ taxMode: 'none', rows: [newRow({ name: 'A', priceText: '1', taxable: true })] }));
-    expect(built.content?.items).toEqual([{ name: 'A', price: 1, taxable: true }]);
-    expect(built.content?.tax).toBeUndefined();
+  it('a quantity and unit price replace the price, which is not saved', () => {
+    const built = buildContent(draft({ rows: [newRow({ name: 'Apples', quantityText: '0,452', unitPriceText: '2.99', priceText: '99' })] }));
+    expect(built.content?.items).toEqual([{ name: 'Apples', quantity: 0.452, unitPrice: 2.99 }]);
+    expect(Object.keys(built.content!.items[0])).toEqual(['name', 'quantity', 'unitPrice']);
+  });
+
+  it('holds the save when a quantity has no unit price, or the other way round', () => {
+    const rows = [newRow({ name: 'A', quantityText: '2', priceText: '1' }), newRow({ name: 'B', unitPriceText: '2', priceText: '1' })];
+    const built = buildContent(draft({ rows }));
+    expect(built.content).toBeNull();
+    expect(built.held).toBe(2);
+    expect(built.rowErrors[rows[0].key]).toContain('both the quantity and the unit price');
+  });
+
+  it('holds the save for a bad quantity or unit price, with the reason', () => {
+    const rows = [newRow({ name: 'A', quantityText: '0', unitPriceText: '1' }), newRow({ name: 'B', quantityText: '1.2345', unitPriceText: '1' }), newRow({ name: 'C', quantityText: '1', unitPriceText: '£1' })];
+    const built = buildContent(draft({ rows }));
+    expect(built.rowErrors[rows[0].key]).toContain('above 0');
+    expect(built.rowErrors[rows[1].key]).toContain('three decimal');
+    expect(built.rowErrors[rows[2].key]).toContain('currency symbol');
+  });
+
+  it('holds a line that is too large, and a product code that is too long', () => {
+    const big = buildContent(draft({ rows: [newRow({ name: 'A', quantityText: '10000', unitPriceText: '1000000' })] }));
+    expect(big.content).toBeNull();
+    expect(Object.values(big.rowErrors)[0]).toContain('largest price');
+    expect(buildContent(draft({ rows: [newRow({ name: 'A', code: 'x'.repeat(21), priceText: '1' })] })).content).toBeNull();
   });
 
   it('holds the whole save while any row has a name but no valid price, and says which', () => {
@@ -58,19 +120,43 @@ describe('buildContent (what is saved)', () => {
     expect(buildContent(draft({ rows: [newRow({ priceText: '3' })] })).content?.items).toEqual([{ name: '', price: 3 }]);
   });
 
-  it('holds the save for a bad rate, but only when tax is on', () => {
-    const rows = [newRow({ name: 'A', priceText: '1' })];
-    const off = buildContent(draft({ taxMode: 'none', rateText: 'nonsense', rows }));
-    expect(off.content).not.toBeNull();
-    const on = buildContent(draft({ taxMode: 'added', rateText: 'nonsense', rows }));
-    expect(on.content).toBeNull();
-    expect(on.rateError).toContain('Type just the number');
-    expect(buildContent(draft({ taxMode: 'added', rateText: '101', rows })).rateError).toContain('more than 100');
+  it('holds the save for a bad category, with a reason, and only for categories that hold something', () => {
+    const bad = [newCategory({ code: '', label: 'VAT', rateText: '20' }), newCategory({ code: 'A', rateText: 'x' }), newCategory({ code: 'B', rateText: '101' }), newCategory({ code: 'TOOLONG', rateText: '1' })];
+    const built = buildContent(draft({ categories: bad }));
+    expect(built.content).toBeNull();
+    expect(Object.keys(built.categoryErrors)).toHaveLength(4);
+    expect(built.categoryErrors[bad[0].key]).toContain('short code');
+    expect(built.categoryErrors[bad[2].key]).toContain('more than 100');
+    expect(buildContent(draft({ categories: [newCategory()] })).content).not.toBeNull();
   });
 
-  it('holds the save for a currency or tax label that is too long', () => {
+  it('holds the save when two categories share a code', () => {
+    const c = [newCategory({ code: 'A', rateText: '1' }), newCategory({ code: 'A', rateText: '2' })];
+    const built = buildContent(draft({ categories: c }));
+    expect(built.content).toBeNull();
+    expect(built.categoryErrors[c[1].key]).toContain('already uses');
+  });
+
+  it('an item whose category is gone is simply not taxed', () => {
+    const built = buildContent(draft({ categories: cats(), rows: [newRow({ name: 'A', priceText: '1', taxCode: 'Z' })] }));
+    expect(built.content?.items).toEqual([{ name: 'A', price: 1 }]);
+  });
+
+  it('an item cannot be taxed while no category exists', () => {
+    expect(buildContent(draft({ rows: [newRow({ name: 'A', priceText: '1', taxCode: 'A' })] })).content?.items).toEqual([{ name: 'A', price: 1 }]);
+  });
+
+  it('holds the save for a bad tender amount, but a method alone is just a note-to-self', () => {
+    expect(buildContent(draft({ tenderAmount: 'lots' })).tenderError).toContain('Type just the number');
+    expect(buildContent(draft({ tenderAmount: '-5' })).tenderError).toContain('negative');
+    expect(buildContent(draft({ tenderAmount: '5', tenderMethod: 'x'.repeat(30) })).tenderError).toContain('at most 20');
+    const method = buildContent(draft({ tenderMethod: 'CASH' }));
+    expect(method.content?.tender).toBeUndefined();
+    expect(method.content).not.toBeNull();
+  });
+
+  it('holds the save for a currency that is too long', () => {
     expect(buildContent(draft({ currency: 'TOOLONG' })).currencyError).toBeTruthy();
-    expect(buildContent(draft({ taxMode: 'added', labelText: 'x'.repeat(30) })).labelError).toBeTruthy();
     expect(buildContent(draft({ currency: 'US$' })).content).not.toBeNull();
   });
 
@@ -78,8 +164,9 @@ describe('buildContent (what is saved)', () => {
     const cases: Draft[] = [
       draft(),
       draft({ currency: '£', rows: [newRow({ name: 'A', priceText: '0.1' }), newRow({ name: 'B', priceText: '0.2' })] }),
-      draft({ currency: '€', taxMode: 'included', rateText: '7.5', rows: [newRow({ name: 'A', priceText: '-1.25', taxable: true })] }),
-      draft({ taxMode: 'added', rateText: '0', labelText: 'GST', rows: [newRow({ name: 'A', priceText: '1000000' })] }),
+      draft({ currency: '€', taxMode: 'included', categories: [newCategory({ code: 'A', rateText: '7.5' })], rows: [newRow({ name: 'A', priceText: '-1.25', taxCode: 'A' })] }),
+      draft({ categories: [newCategory({ code: 'G', label: 'GST', rateText: '0' })], tenderMethod: 'CARD', tenderAmount: '0', rows: [newRow({ name: 'A', priceText: '1000000' })] }),
+      draft({ categories: cats(), rows: [newRow({ name: 'A', code: '9', quantityText: '2.35', unitPriceText: '1.99', taxCode: 'B' })] }),
     ];
     for (const d of cases) {
       const { content } = buildContent(d);
@@ -91,16 +178,39 @@ describe('buildContent (what is saved)', () => {
   });
 
   it('a list opened for editing and saved again without changes is exactly what it was', () => {
-    const original: ItemsContent = { kind: 'items', currency: '£', tax: { mode: 'added', rate: 17.5, label: 'VAT' }, items: [{ name: 'A', price: 4.35, taxable: true }, { name: 'B', price: 2 }, { name: 'C', price: -0.5 }] };
+    const original: ItemsContent = {
+      kind: 'items',
+      currency: '£',
+      taxes: [{ code: 'A', label: 'VAT', rate: 17.5 }, { code: 'B', rate: 0 }],
+      taxMode: 'included',
+      tender: { method: 'CASH', amount: 20 },
+      items: [
+        { name: 'A', code: '77', price: 4.35, tax: 'A' },
+        { name: 'B', quantity: 0.452, unitPrice: 2.99, tax: 'B' },
+        { name: 'C', price: -0.5 },
+      ],
+    };
     expect(buildContent(draftFrom(original)).content).toEqual(original);
   });
 
   it('the totals the editor shows come from the same code as the viewer, so they cannot disagree', () => {
     const built = buildContent(
-      draft({ currency: '£', taxMode: 'added', rateText: '20', rows: [newRow({ name: 'A', priceText: '4.50', taxable: true }), newRow({ name: 'B', priceText: '2' }), newRow({ name: 'C', priceText: '12', taxable: true })] }),
+      draft({
+        currency: '£',
+        categories: [newCategory({ code: 'A', rateText: '20' })],
+        tenderAmount: '25',
+        rows: [newRow({ name: 'A', priceText: '4.50', taxCode: 'A' }), newRow({ name: 'B', priceText: '2' }), newRow({ name: 'C', priceText: '12', taxCode: 'A' })],
+      }),
     );
     const totals = computeTotals(built.content!);
-    expect([totals.subtotal, totals.taxableBase, totals.tax, totals.total]).toEqual([1850, 1650, 330, 2180]);
+    expect([totals.subtotal, totals.taxableBase, totals.tax, totals.total, totals.change]).toEqual([1850, 1650, 330, 2180, 320]);
+  });
+
+  it('removing a category from the list leaves nothing behind in the saved file', () => {
+    const d = draft({ categories: [], rows: [newRow({ name: 'A', priceText: '1', taxCode: 'A' })] });
+    const { content } = buildContent(d);
+    expect(content?.taxes).toBeUndefined();
+    expect(content?.taxMode).toBeUndefined();
   });
 });
 

@@ -263,6 +263,14 @@ lines and a tax letter, subtotal and tax lines (when tax is added on top), total
 a payment block, notes, closing message, and a barcode with its number. New parts `tax-table` and `tender`; `paragraph` accepts a plain one-line slot
 and `image` an optional `width`, so older receipts still render. Still additive, `formatVersion` 1. Paper wear remains a later step.
 
+## 2026-11-21: Richer receipts, step 3 (the tool) built
+
+The authoring tool now edits everything the receipt can hold: tax categories (code, name, rate) with a per-item picker and a setting for added or
+included tax, product codes, quantity at unit price, tender and change, with totals from the same code as the viewer. The free-text parts (header
+details, payment details, notes, closing message, barcode number) sit in collapsible form sections, named by `formSection` on a template block, so any
+template can do the same. Older single-rate receipts open as one category "T" and save in the new form with the same figures. Saving never drops
+the new fields, so the step 1 warning is gone. Paper wear remains a later step.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,

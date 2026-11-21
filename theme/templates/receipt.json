@@ -95,7 +95,8 @@
         "block": "paragraph",
         "slot": "details",
         "props": {
-          "align": "center"
+          "align": "center",
+          "formSection": "Header details"
         }
       },
       {
@@ -140,25 +141,31 @@
         "block": "paragraph",
         "slot": "payment",
         "props": {
-          "align": "left"
+          "align": "left",
+          "formSection": "Payment details"
         }
       },
       {
         "block": "paragraph",
         "slot": "notes",
         "props": {
-          "align": "center"
+          "align": "center",
+          "formSection": "Notes and closing message"
         }
       },
       {
         "block": "caption",
-        "slot": "footer"
+        "slot": "footer",
+        "props": {
+          "formSection": "Notes and closing message"
+        }
       },
       {
         "block": "barcode",
         "props": {
           "seed": "reference",
-          "number": "barcodeNumber"
+          "number": "barcodeNumber",
+          "formSection": "Notes and closing message"
         }
       }
     ]

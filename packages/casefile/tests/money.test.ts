@@ -7,6 +7,7 @@ import {
   normaliseChoices,
   lineMinor,
   normaliseItems,
+  parseQuantityText,
   resolveTaxes,
   toMinorUnits,
   type ItemLine,
@@ -541,5 +542,17 @@ describe('normaliseItems with categories, item fields and tender', () => {
     const r = normaliseItems({ currency: 5, taxes: 3, taxMode: 1, tender: 'x', items: [{ name: 'keep', price: 1 }] });
     expect(r.content.items).toEqual([{ name: 'keep', price: 1 }]);
     expect(r.issues).toHaveLength(4);
+  });
+});
+
+describe('parseQuantityText', () => {
+  it('reads plain numbers, with a comma as the decimal mark', () => {
+    expect(parseQuantityText('2')).toEqual({ ok: true, value: 2 });
+    expect(parseQuantityText(' 0,452 ')).toEqual({ ok: true, value: 0.452 });
+    expect(parseQuantityText('10000')).toEqual({ ok: true, value: 10000 });
+  });
+  it('refuses anything else, with a reason', () => {
+    for (const bad of ['', 'x', '-1', '0', '0.000', '1.2345', '10001', '1e3', '2 kg']) expect(parseQuantityText(bad).ok, bad).toBe(false);
+    expect((parseQuantityText('1.2345') as { reason: string }).reason).toContain('three decimal');
   });
 });

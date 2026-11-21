@@ -1,6 +1,6 @@
 # Richer receipts
 
-**Status: approved by the author on 2026-11-20. Steps 1 and 2 of 3 (format and money; viewer) are built; the tool is next.** It answers the author's request (2026-11-20)
+**Status: approved by the author on 2026-11-20. All three steps are built.** It answers the author's request (2026-11-20)
 for more information on the receipt, drawing on four real receipts (US supermarket, UK supermarket, UK discounter, a crumpled
 US discounter receipt).
 
@@ -107,7 +107,7 @@ logo, store, address, details, items, subtotal, tax table, total, tender, change
 | --- | --- |
 | 1. Format, money and loader | **Built.** Tax categories, item fields, tender and change, exact maths, tolerant loader, 30 new tests. Nothing changes on screen yet. |
 | 2. Viewer | **Built.** Quantity lines, product codes and tax letters on items; per-category tax lines; new `tax-table` and `tender` parts; logo, details, notes and barcode number slots; the upgraded `receipt` template and sample. |
-| 3. Authoring tool | |
+| 3. Authoring tool | **Built.** Tax category table, per-item tax picker, optional code and quantity columns, tender, live totals and change, and collapsible form sections. |
 
 Details settled while building step 1:
 
@@ -117,7 +117,6 @@ Details settled while building step 1:
 - A category is a row on the receipt only when a line uses it. An item naming a category that does not exist is kept, untaxed, with a warning.
 - When a receipt lists `taxes`, the older single `tax` setting and `"taxable"` marks are ignored with a warning. Older receipts load and total exactly as before.
 - Change is never negative; a payment below the total shows no change and invents nothing.
-- Until step 3, the authoring tool's item table does not know the new fields. It shows each row's line total as its price, and **saving a receipt that uses categories, codes or a tender from the tool would drop them**, so edit those receipts by hand until step 3 lands.
 
 Details settled while building step 2:
 
@@ -128,3 +127,12 @@ Details settled while building step 2:
 - Zero-rate categories do not add a line to the sums; the tax table still lists them.
 - An older single-rate receipt now uses the new template, so its tax shows in the tax table rather than as a line above the total.
 - The sample receipt is rebuilt from placeholder content (two categories with tax included, a quantity line, codes, cash tender).
+
+Details settled while building step 3:
+
+- The item table has a tax picker per row (the receipt's categories), one setting for how tax works, and a tick to show product codes and quantities (on by default when any item uses them). A row with a quantity and a unit price shows the worked-out price read-only.
+- An older single-rate receipt opens with one category, "T", and its taxable items pointing at it. Saving it from the tool writes the new form with the same figures, so nothing visible changes.
+- Renaming a category's code moves the items that used it. Removing a category leaves those items untaxed.
+- Nothing is saved until every box is valid ("Not saved yet", with the reason), as before: a half-typed category, quantity, price or tender never drops anything.
+- A template block may name a collapsible section of the form with `formSection`; blocks that share a title are gathered into one. The receipt uses it for header details, payment details, and notes and closing message. A section opens when it already has something written.
+- An older receipt whose payment line is a one-line value is shown in the text box, and becomes text when edited.

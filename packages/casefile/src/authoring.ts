@@ -248,7 +248,7 @@ export type PlanItem =
   /** Rows of labelled boxes arranged as they are on the paper. */
   | { type: 'grid'; rows: PlanCell[][] }
   /** Slots listed one under another, optionally under a title. `tall` is for the long text set on ruled lines. */
-  | { type: 'slots'; title?: string; slots: string[]; tall?: boolean };
+  | { type: 'slots'; title?: string; slots: string[]; tall?: boolean; collapsible?: boolean };
 
 /**
  * The order and arrangement of a template's form in the tool, taken from its layout so the form on the left mirrors the
@@ -270,9 +270,13 @@ export function editorPlan(template: { slots: { name: string }[]; layout: Block 
     return out;
   };
   const prop = (block: Block, key: string) => block.props?.[key];
-  const addSlots = (title: string | undefined, names: unknown[], tall = false) => {
+  const addSlots = (title: string | undefined, names: unknown[], tall = false, collapsible = false) => {
     const slots = take(names);
-    if (slots.length > 0) plan.push({ type: 'slots', ...(title ? { title } : {}), slots, ...(tall ? { tall: true } : {}) });
+    if (slots.length === 0) return;
+    // Blocks that share a section title (a template's `formSection`) are gathered into one collapsible section.
+    const last = plan[plan.length - 1];
+    if (collapsible && last?.type === 'slots' && last.collapsible && last.title === title) last.slots.push(...slots);
+    else plan.push({ type: 'slots', ...(title ? { title } : {}), slots, ...(tall ? { tall: true } : {}), ...(collapsible ? { collapsible: true } : {}) });
   };
 
   const walk = (block: Block) => {
@@ -316,8 +320,13 @@ export function editorPlan(template: { slots: { name: string }[]; layout: Block 
         addSlots(undefined, [block.slot], true);
         return;
       default:
-        if (block.slot) addSlots(undefined, [block.slot]);
-        addSlots(undefined, [prop(block, 'seed')]);
+        // A block may name a collapsible section of the form (props.formSection), for parts most documents leave empty.
+        if (typeof prop(block, 'formSection') === 'string') {
+          addSlots(prop(block, 'formSection') as string, [block.slot, prop(block, 'seed'), prop(block, 'number')], false, true);
+        } else {
+          if (block.slot) addSlots(undefined, [block.slot]);
+          addSlots(undefined, [prop(block, 'seed'), prop(block, 'number')]);
+        }
     }
   };
   walk(template.layout);

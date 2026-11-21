@@ -280,6 +280,30 @@ describe('editorPlan (the tool\'s form follows the paper)', () => {
     expect(editorPlan({ slots: slots('a', 'b'), layout: { block: 'stack' } })).toEqual([{ type: 'slots', title: 'Other parts', slots: ['a', 'b'] }]);
   });
 
+  it('gathers blocks that share a formSection into one collapsible section, and keeps the rest plain', () => {
+    const plan = editorPlan({
+      slots: slots('store', 'payment', 'notes', 'barcodeNo', 'seed'),
+      layout: {
+        block: 'stack',
+        children: [
+          { block: 'title', slot: 'store' },
+          { block: 'paragraph', slot: 'payment', props: { formSection: 'Payment' } },
+          { block: 'paragraph', slot: 'notes', props: { formSection: 'Notes' } },
+          { block: 'barcode', props: { seed: 'seed', number: 'barcodeNo', formSection: 'Notes' } },
+        ],
+      },
+    });
+    expect(plan).toEqual([
+      { type: 'slots', title: 'Title', slots: ['store'] },
+      { type: 'slots', title: 'Payment', slots: ['payment'], collapsible: true },
+      { type: 'slots', title: 'Notes', slots: ['notes', 'seed', 'barcodeNo'], collapsible: true },
+    ]);
+  });
+
+  it('shows the number under a barcode as a form part', () => {
+    expect(editorPlan({ slots: slots('ref', 'no'), layout: { block: 'barcode', props: { seed: 'ref', number: 'no' } } })).toEqual([{ type: 'slots', slots: ['ref', 'no'] }]);
+  });
+
   it('covers every slot of the real theme templates, once each', async () => {
     const { theme } = loadThemeFromFs(repoTheme);
     for (const template of Object.values(theme.templates)) {
