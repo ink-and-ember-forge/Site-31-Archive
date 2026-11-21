@@ -1,3 +1,4 @@
+import { planSlots } from '@archive/casefile/authoring';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -321,7 +322,8 @@ describe('item lists (receipts)', () => {
     const items = view.slots.find((s) => s.name === 'items')!;
     expect(items).toMatchObject({ kind: 'items', label: 'Items', required: true });
     expect(items.items).toEqual({ kind: 'items', items: [] });
-    expect(view.plan.some((p) => p.type === 'slots' && p.slots.includes('items'))).toBe(true);
+    expect(view.plan.flatMap(planSlots)).toContain('items');
+    expect(view.plan.filter((p) => p.type === 'section').map((p) => (p as { title: string }).title)).toEqual(['Heading', 'Top line', 'Main body', 'Footer']);
   });
 
   it('saves a list exactly, in a stable order, and reads it back', async () => {

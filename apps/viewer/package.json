@@ -12,7 +12,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@archive/casefile": "*"
+    "@archive/casefile": "*",
+    "qrcode-generator": "2.0.4"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^6.2.0",

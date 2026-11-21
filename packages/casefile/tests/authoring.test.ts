@@ -223,7 +223,7 @@ describe('imageFileName', () => {
   });
 });
 
-import { editorPlan } from '../src/authoring';
+import { editorPlan, planSlots } from '../src/authoring';
 
 describe('editorPlan (the tool\'s form follows the paper)', () => {
   const slots = (...names: string[]) => names.map((name) => ({ name }));
@@ -280,35 +280,57 @@ describe('editorPlan (the tool\'s form follows the paper)', () => {
     expect(editorPlan({ slots: slots('a', 'b'), layout: { block: 'stack' } })).toEqual([{ type: 'slots', title: 'Other parts', slots: ['a', 'b'] }]);
   });
 
-  it('gathers blocks that share a formSection into one collapsible section, and keeps the rest plain', () => {
+  it('groups blocks into the template\'s sections, in the template\'s order, and unsectioned ones come first', () => {
     const plan = editorPlan({
-      slots: slots('store', 'payment', 'notes', 'barcodeNo', 'seed'),
+      slots: slots('store', 'date', 'time', 'payment', 'notes', 'barcodeNo', 'seed', 'free'),
+      sections: [{ id: 'footer', name: 'Footer' }, { id: 'heading', name: 'Heading', open: true }, { id: 'empty', name: 'Never used' }],
       layout: {
         block: 'stack',
         children: [
-          { block: 'title', slot: 'store' },
-          { block: 'paragraph', slot: 'payment', props: { formSection: 'Payment' } },
-          { block: 'paragraph', slot: 'notes', props: { formSection: 'Notes' } },
-          { block: 'barcode', props: { seed: 'seed', number: 'barcodeNo', formSection: 'Notes' } },
+          { block: 'title', slot: 'store', section: 'heading' },
+          { block: 'split-row', props: { left: 'date', right: 'time' }, section: 'heading' },
+          { block: 'paragraph', slot: 'payment', section: 'footer' },
+          { block: 'paragraph', slot: 'free' },
+          { block: 'barcode', props: { seed: 'seed', number: 'barcodeNo' }, section: 'footer' },
         ],
       },
     });
     expect(plan).toEqual([
-      { type: 'slots', title: 'Title', slots: ['store'] },
-      { type: 'slots', title: 'Payment', slots: ['payment'], collapsible: true },
-      { type: 'slots', title: 'Notes', slots: ['notes', 'seed', 'barcodeNo'], collapsible: true },
+      { type: 'slots', slots: ['free'] },
+      { type: 'section', id: 'footer', title: 'Footer', items: [{ type: 'slots', slots: ['payment'] }, { type: 'slots', slots: ['seed', 'barcodeNo'] }] },
+      {
+        type: 'section',
+        id: 'heading',
+        title: 'Heading',
+        open: true,
+        items: [
+          { type: 'slots', title: 'Title', slots: ['store'] },
+          { type: 'grid', rows: [[{ slot: 'date', width: 1, shaded: false }, { slot: 'time', width: 1, shaded: false }]] },
+        ],
+      },
+      { type: 'slots', title: 'Other parts', slots: ['notes'] },
     ]);
   });
 
-  it('shows the number under a barcode as a form part', () => {
+  it('a block inherits its parent\'s section, and an unknown section means no section', () => {
+    const plan = editorPlan({
+      slots: slots('a', 'b', 'c'),
+      sections: [{ id: 's', name: 'S' }],
+      layout: { block: 'stack', children: [{ block: 'columns', section: 's', children: [{ block: 'paragraph', slot: 'a' }, { block: 'paragraph', slot: 'b' }] }, { block: 'paragraph', slot: 'c', section: 'ghost' }] },
+    });
+    expect(plan).toEqual([{ type: 'slots', slots: ['c'] }, { type: 'section', id: 's', title: 'S', items: [{ type: 'slots', slots: ['a'] }, { type: 'slots', slots: ['b'] }] }]);
+  });
+
+  it('shows the number and caption under a barcode or QR code as form parts', () => {
     expect(editorPlan({ slots: slots('ref', 'no'), layout: { block: 'barcode', props: { seed: 'ref', number: 'no' } } })).toEqual([{ type: 'slots', slots: ['ref', 'no'] }]);
+    expect(editorPlan({ slots: slots('qr', 'cap'), layout: { block: 'qr-code', slot: 'qr', props: { caption: 'cap' } } })).toEqual([{ type: 'slots', slots: ['qr'] }, { type: 'slots', slots: ['cap'] }]);
   });
 
   it('covers every slot of the real theme templates, once each', async () => {
     const { theme } = loadThemeFromFs(repoTheme);
     for (const template of Object.values(theme.templates)) {
       const plan = editorPlan(template);
-      const all = plan.flatMap((p) => (p.type === 'grid' ? p.rows.flat().map((c) => c.slot) : p.type === 'slots' ? p.slots : []));
+      const all = plan.flatMap(planSlots);
       expect([...all].sort(), template.id).toEqual(template.slots.map((s) => s.name).sort());
     }
   });

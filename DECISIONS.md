@@ -278,6 +278,13 @@ figure, a real scannable QR code from a message, and form sections that organise
 and receipt overrides, and computed total savings; all additive, `formatVersion` 1. `lineMinor` now means the amount after discounts (`grossMinor` is before).
 The tool preserves what it cannot yet edit when saving, so nothing is lost before step 3. Sections, QR and the viewer are step 2. Style picker and receipt looks are the next round.
 
+## 2026-11-21: Receipt round two, step 2 (viewer and template) built
+
+Viewer: discount lines under items, total savings, printed overrides (item, subtotal, tax, total, change, savings), a real scannable QR code and bars that follow the
+barcode number. Templates may declare `sections` (with an optional `open`) and blocks join one with `section`; the form shows each as a collapsible group,
+replacing the earlier `formSection`. The QR uses `qrcode-generator` 2.0.4 (MIT, pinned, about 10 kB gzipped), and its output was decoded from a screenshot to check it scans.
+Messages are limited to 300 characters. The tool for editing the new fields is step 3.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,

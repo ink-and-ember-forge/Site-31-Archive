@@ -8,7 +8,8 @@
   const seedSlot = $derived(typeof block.props?.seed === 'string' ? content[block.props.seed] : undefined);
   const numberSlot = $derived(typeof block.props?.number === 'string' ? content[block.props.number] : undefined);
   const number = $derived(numberSlot?.kind === 'value' ? numberSlot.value.trim() : '');
-  const bars = $derived(barcodeBars(seedSlot?.kind === 'value' ? seedSlot.value : ''));
+  // The bars follow the printed number when there is one, so changing the number changes the pattern.
+  const bars = $derived(barcodeBars(number || (seedSlot?.kind === 'value' ? seedSlot.value : '')));
 </script>
 
 <!-- Decorative only: a pattern made from the reference, not a real code. -->

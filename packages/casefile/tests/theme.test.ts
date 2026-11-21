@@ -77,6 +77,19 @@ describe('the shared theme itself', () => {
     expect(problems).toContain('"hologram"');
   });
 
+  it('lintTemplate finds a block in a section the template does not define, and a duplicate section', () => {
+    const template = {
+      id: 'sectioned',
+      slots: [{ name: 'a', kind: 'value' as const }],
+      sections: [{ id: 'one', name: 'One' }, { id: 'one', name: 'Again' }],
+      layout: { block: 'stack', children: [{ block: 'title', slot: 'a', section: 'one' }, { block: 'title', slot: 'a', section: 'ghost' }] },
+    };
+    const problems = lintTemplate(template).join(' | ');
+    expect(problems).toContain('section "one" is defined twice');
+    expect(problems).toContain('section "ghost"');
+    expect(lintTemplate({ ...template, sections: [{ id: 'one', name: 'One' }], layout: { block: 'title', slot: 'a', section: 'one' } })).toEqual([]);
+  });
+
   it('the build fails on a theme template that refers to a slot it does not have', async () => {
     const { mkdirSync, mkdtempSync, writeFileSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');

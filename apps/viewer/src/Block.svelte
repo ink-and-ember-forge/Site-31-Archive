@@ -7,6 +7,7 @@
   import FieldGrid from './FieldGrid.svelte';
   import ItemsList from './ItemsList.svelte';
   import Letterhead from './Letterhead.svelte';
+  import QrCode from './QrCode.svelte';
   import Rich from './Rich.svelte';
   import RuledLines from './RuledLines.svelte';
   import StampBlock from './StampBlock.svelte';
@@ -71,6 +72,8 @@
   <StampBlock {block} {content} />
 {:else if block.block === 'barcode'}
   <Barcode {block} {content} />
+{:else if block.block === 'qr-code'}
+  <QrCode {block} {content} />
 {:else if block.block === 'image'}
   {#if slot?.kind === 'image'}
     <img src={slot.url} alt={slot.alt} draggable="false" style:width={typeof opts.width === 'string' ? opts.width : undefined} class:centred={typeof opts.width === 'string'} />

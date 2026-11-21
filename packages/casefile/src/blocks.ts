@@ -21,6 +21,7 @@ export const KNOWN_BLOCKS = [
   'tax-table',
   'tender',
   'barcode',
+  'qr-code',
   'rule',
   'split-row',
 ] as const;
@@ -37,6 +38,7 @@ const SLOT_PROPS: Partial<Record<string, string[]>> = {
   letterhead: ['crest', 'name', 'lines', 'reference', 'revision'],
   stamp: ['text', 'date'],
   barcode: ['seed', 'number'],
+  'qr-code': ['caption'],
   'split-row': ['left', 'right'],
 };
 
