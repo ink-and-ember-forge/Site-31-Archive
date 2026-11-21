@@ -16,6 +16,7 @@ import { buildArchive, checkEpisodeFolder, loadThemeFromFs } from '@archive/case
 import type { Layout } from '@archive/casefile';
 import type { EpisodeState, Problem, Result } from '../shared/api';
 import { DocumentFiles, templateInfos } from './documents';
+import { RegistryFiles } from './registry';
 
 export interface Locations {
   /** The shared theme (templates and styles) that ships with the app. */
@@ -29,6 +30,7 @@ export const toProblems = (issues: Issue[]): Problem[] =>
 
 export class EpisodeSession {
   private readonly files: DocumentFiles;
+  private readonly registry: RegistryFiles;
 
   private constructor(
     readonly folder: string,
@@ -36,6 +38,7 @@ export class EpisodeSession {
     private readonly where: Locations,
   ) {
     this.files = new DocumentFiles(folder, () => loadThemeFromFs(where.themeDir).theme.templates);
+    this.registry = new RegistryFiles(folder, id);
   }
 
   /** Creates `<parent>/<id>` from the title, with a valid placeholder document, and opens it. */
@@ -101,6 +104,7 @@ export class EpisodeSession {
       id: this.id,
       details: this.details(),
       documents: this.files.view(),
+      registry: this.registry.list(),
       templates: templateInfos(loadThemeFromFs(this.where.themeDir).theme.templates),
       problems: await this.problems(),
     };
@@ -116,6 +120,10 @@ export class EpisodeSession {
   importImage = (id: string, slot: string, sourcePath: string) => this.files.importImage(id, slot, sourcePath);
   setImageAlt = (id: string, slot: string, alt: string) => this.files.setImageAlt(id, slot, alt);
   setItems = (id: string, slot: string, items: unknown) => this.files.setItems(id, slot, items);
+  addTextHotspot = (id: string, slot: string, text: string, hotspot: unknown) => this.files.addTextHotspot(id, slot, text, hotspot);
+  addRectHotspot = (id: string, hotspot: unknown) => this.files.addRectHotspot(id, hotspot);
+  setHotspot = (id: string, hotspot: unknown) => this.files.setHotspot(id, hotspot);
+  removeHotspot = (id: string, hotspotId: string, text?: string) => this.files.removeHotspot(id, hotspotId, text);
 
   /** Packages the episode exactly as the website does, so the real viewer can show it. */
   async buildPreview(): Promise<void> {

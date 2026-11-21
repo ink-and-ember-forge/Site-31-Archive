@@ -15,6 +15,10 @@ contextBridge.exposeInMainWorld('author', {
   chooseImage: (id, slot) => ipcRenderer.invoke('author:choose-image', id, slot),
   setImageAlt: (id, slot, alt) => ipcRenderer.invoke('author:set-image-alt', id, slot, alt),
   setItems: (id, slot, items) => ipcRenderer.invoke('author:set-items', id, slot, items),
+  addTextHotspot: (id, slot, text, hotspot) => ipcRenderer.invoke('author:add-text-hotspot', id, slot, text, hotspot),
+  addRectHotspot: (id, hotspot) => ipcRenderer.invoke('author:add-rect-hotspot', id, hotspot),
+  setHotspot: (id, hotspot) => ipcRenderer.invoke('author:set-hotspot', id, hotspot),
+  removeHotspot: (id, hotspotId, text) => ipcRenderer.invoke('author:remove-hotspot', id, hotspotId, text),
   revealFolder: () => ipcRenderer.invoke('author:reveal'),
   onPreview: (callback) => {
     const handler = (_event, info) => callback(info);

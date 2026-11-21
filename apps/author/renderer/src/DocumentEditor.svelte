@@ -1,12 +1,38 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { planSlots, type PlanItem } from '@archive/casefile/authoring';
-  import type { DocumentView, SlotView } from '../../src/shared/api';
+  import { newRectHotspot, planSlots, uniqueId, type PlanItem } from '@archive/casefile/authoring';
+  import type { DocumentView, HotspotView, RegistryView, SlotView } from '../../src/shared/api';
   import type { Autosave, Now } from './lib/actions';
   import FieldGridForm from './FieldGridForm.svelte';
+  import HotspotCard from './HotspotCard.svelte';
   import SlotField from './SlotField.svelte';
 
-  let { doc, autosave, now, onback }: { doc: DocumentView; autosave: Autosave; now: Now; onback: () => void } = $props();
+  let {
+    doc,
+    others,
+    registry,
+    autosave,
+    now,
+    onback,
+  }: { doc: DocumentView; others: { id: string; label: string }[]; registry: RegistryView[]; autosave: Autosave; now: Now; onback: () => void } = $props();
+
+  // The clickable part to show open: the one just made.
+  let justMade = $state<string | null>(null);
+  // Bumped when a change made here alters text that a box on this form is showing, so the box takes the new text.
+  let resync = $state(0);
+  const takenIds = $derived(doc.hotspots.map((h) => h.id));
+
+  async function addBox() {
+    const id = uniqueId('box', takenIds);
+    const result = await now(() => window.author.addRectHotspot(doc.id, newRectHotspot(id)));
+    if (result?.ok) justMade = id;
+  }
+  async function removeHotspot(h: HotspotView) {
+    const what = h.words !== undefined ? `“${h.words}” will stay in the text, but stop being clickable.` : 'The box is removed.';
+    if (!confirm(`Remove this clickable part? ${what}`)) return;
+    const result = await now(() => window.author.removeHotspot(doc.id, h.id));
+    if (result?.ok) resync++;
+  }
 
   const slotMap = $derived<Record<string, SlotView>>(Object.fromEntries(doc.slots.map((s) => [s.name, s])));
   let layout = $state({ x: untrack(() => doc.layout.x), y: untrack(() => doc.layout.y), width: untrack(() => doc.layout.width), rotation: untrack(() => doc.layout.rotation ?? 0) });
@@ -57,7 +83,7 @@
     {:else}
       {#if item.title}<h3>{item.title}</h3>{/if}
       {#each item.slots as name (name)}
-        {#if slotMap[name]}<SlotField docId={doc.id} slot={slotMap[name]} tall={item.tall} {autosave} {now} />{/if}
+        {#if slotMap[name]}<SlotField docId={doc.id} slot={slotMap[name]} tall={item.tall} {takenIds} {resync} {autosave} {now} onhotspot={(id) => (justMade = id)} />{/if}
       {/each}
     {/if}
   {/each}
@@ -75,8 +101,15 @@
     {#if doc.plan.length > 0}
       {@render planItems(doc.plan)}
     {:else}
-      {#each doc.slots as slot (slot.name)}<SlotField docId={doc.id} {slot} {autosave} {now} />{/each}
+      {#each doc.slots as slot (slot.name)}<SlotField docId={doc.id} {slot} {takenIds} {resync} {autosave} {now} onhotspot={(id) => (justMade = id)} />{/each}
     {/if}
+
+    <h3>Clickable parts</h3>
+    <p class="help">Select words in the text and press “Make selected words clickable”. For a picture or receipt, add a box instead. Each one opens a note, another document, or a registry entry.</p>
+    {#each doc.hotspots as h (h.id)}
+      <HotspotCard docId={doc.id} hotspot={h} {others} {registry} startOpen={justMade === h.id} {autosave} {now} onremove={removeHotspot} />
+    {/each}
+    <button onclick={addBox}>Add a box on the page</button>
 
     <h3>On the table</h3>
     <p class="help">Drag the document on the preview, or type exact positions. They are fractions of the table: 0 is the left or top edge, 1 the right or bottom.</p>

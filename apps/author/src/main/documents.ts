@@ -3,15 +3,18 @@
 // author (or a later step) has added, such as hotspots, is left exactly as it was.
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, basename } from 'node:path';
-import { isSafePath, normaliseItems, type ItemsContent, type Layout, type Template } from '@archive/casefile';
+import { isSafePath, normaliseItems, validateHotspot, describeErrors, type Hotspot, type ItemsContent, type Layout, type Template } from '@archive/casefile';
 import {
   addDocumentToManifest,
   clampLayout,
+  clampRect,
   defaultLayout,
   editorPlan,
   imageFileName,
   isValidId,
   newDocumentFiles,
+  removeSpan,
+  spansIn,
   removeDocumentFromManifest,
   serializeJson,
   serializeManifest,
@@ -21,7 +24,7 @@ import {
   slugify,
   uniqueId,
 } from '@archive/casefile/authoring';
-import type { DocumentView, Result, SlotView, TemplateInfo } from '../shared/api';
+import type { DocumentView, HotspotView, Result, SlotView, TemplateInfo } from '../shared/api';
 
 type Json = Record<string, unknown>;
 const SLOT_NAME = /^[A-Za-z0-9_-]+$/;
@@ -72,7 +75,7 @@ export class DocumentFiles {
       try {
         doc = this.readJson(this.docPath(entry.id));
       } catch {
-        return { ...base, template: '?', templateName: 'Unreadable document', slots: [], plan: [], readable: false };
+        return { ...base, template: '?', templateName: 'Unreadable document', slots: [], plan: [], hotspots: [], readable: false };
       }
       const template = templates[String(doc.template)];
       const slotsJson = (doc.slots as Record<string, Json> | undefined) ?? {};
@@ -109,6 +112,7 @@ export class DocumentFiles {
         templateName: (template && templateInfos({ [template.id]: template })[0].name) || String(doc.template),
         slots,
         plan: template ? editorPlan(template) : [],
+        hotspots: this.hotspotViews(doc, slots),
         readable: true,
       };
     });
@@ -287,4 +291,159 @@ export class DocumentFiles {
     this.writeDoc(id, doc);
     return ok;
   }
+
+  // ---------------------------------------------------------------- hotspots
+
+  /** The document's hotspots as the form shows them: the words a text hotspot is on, and a note's text. */
+  private hotspotViews(doc: Json, slots: SlotView[]): HotspotView[] {
+    const raw = Array.isArray(doc.hotspots) ? (doc.hotspots as unknown[]) : [];
+    const out: HotspotView[] = [];
+    for (const entry of raw) {
+      if (!entry || typeof entry !== 'object' || typeof (entry as Json).id !== 'string') continue;
+      const h = entry as unknown as Hotspot;
+      const view: HotspotView = { id: h.id, anchor: h.anchor, target: h.target, valid: validateHotspot(entry) };
+      if (h.anchor?.type === 'text') {
+        const text = slots.find((s) => s.name === (h.anchor as { slot: string }).slot)?.text ?? '';
+        view.words = spansIn(text).find((sp) => sp.id === h.id)?.words;
+      }
+      if (h.target?.type === 'lightbox') {
+        view.noteText = h.target.text ?? (h.target.file && this.resolveFile(h.target.file) && existsSync(join(this.folder, h.target.file)) ? readFileSync(join(this.folder, h.target.file), 'utf8') : '');
+      }
+      out.push(view);
+    }
+    return out;
+  }
+
+  private hotspotList(doc: Json): Hotspot[] {
+    if (!Array.isArray(doc.hotspots)) doc.hotspots = [];
+    return doc.hotspots as unknown as Hotspot[];
+  }
+
+  /** Checks a hotspot the way the reader's loader would, plus what only this episode can know. */
+  private checkHotspot(hotspot: unknown, doc: Json, others: Hotspot[]): Result<Hotspot> {
+    if (!validateHotspot(hotspot)) return fail(`That clickable part is not valid: ${describeErrors(validateHotspot)}`);
+    const h = hotspot as unknown as Hotspot;
+    if (others.some((o) => o.id === h.id)) return fail(`There is already a clickable part called "${h.id}" in this document.`);
+    const t = h.target;
+    if (t.type === 'document') {
+      if (t.document === String(doc.id ?? '')) return fail('A clickable part cannot open the document it is on.');
+      if (!this.ids(this.readManifest()).includes(t.document)) return fail(`There is no document called "${t.document}" in this episode.`);
+    }
+    return { ok: true, value: h };
+  }
+
+  /**
+   * Makes words clickable: writes the text (which now holds the marked words) and adds the hotspot in one step, so the
+   * words and the hotspot can never be saved without each other.
+   */
+  addTextHotspot(id: string, slotName: string, newText: string, hotspot: unknown): Result<true> {
+    const found = this.editableSlot(id, slotName);
+    if (!found.ok) return found;
+    const { doc, slots } = found.value;
+    if (this.slotKind(String(doc.template), slotName, slots[slotName]) !== 'markdown') return fail('Only written text can have clickable words.');
+    const list = this.hotspotList(doc);
+    const checked = this.checkHotspot(hotspot, { ...doc, id }, list);
+    if (!checked.ok) return checked;
+    const h = checked.value;
+    if (h.anchor.type !== 'text' || h.anchor.slot !== slotName) return fail('That clickable part is not on this text.');
+    if (!spansIn(newText).some((sp) => sp.id === h.id)) return fail('The text does not have the marked words for this clickable part.');
+    const wrote = this.setText(id, slotName, newText);
+    if (!wrote.ok) return wrote;
+    const again = this.editableSlot(id, slotName);
+    if (!again.ok) return again;
+    this.hotspotList(again.value.doc).push(h);
+    this.writeDoc(id, again.value.doc);
+    return ok;
+  }
+
+  /** Adds a box hotspot, for a picture or receipt where there are no words to mark. */
+  addRectHotspot(id: string, hotspot: unknown): Result<true> {
+    const found = this.editableSlot(id, 'x');
+    if (!found.ok) return found;
+    const { doc } = found.value;
+    const h = hotspot as Hotspot;
+    if (!h || h.anchor?.type !== 'rect') return fail('That is not a box.');
+    const clean = { ...h, anchor: clampRect(h.anchor) };
+    const list = this.hotspotList(doc);
+    const checked = this.checkHotspot(clean, { ...doc, id }, list);
+    if (!checked.ok) return checked;
+    list.push(checked.value);
+    this.writeDoc(id, doc);
+    return ok;
+  }
+
+  /**
+   * Replaces a hotspot with an edited one (same id). A note whose text lives in its own file keeps that file, so the file
+   * is rewritten instead of the text being moved into the document.
+   */
+  setHotspot(id: string, hotspot: unknown): Result<true> {
+    const found = this.editableSlot(id, 'x');
+    if (!found.ok) return found;
+    const { doc } = found.value;
+    const list = this.hotspotList(doc);
+    const h = hotspot as Hotspot;
+    const at = list.findIndex((o) => o.id === (h as { id?: unknown })?.id);
+    if (at < 0) return fail('That clickable part is not in this document.');
+    const before = list[at];
+    let next = h;
+    if (h.anchor?.type === 'rect') next = { ...h, anchor: clampRect(h.anchor) };
+    // The anchor is fixed once made: only what it opens and its label change here.
+    if (JSON.stringify(next.anchor) !== JSON.stringify(before.anchor) && before.anchor.type === 'text') return fail('The words a clickable part is on cannot be changed here.');
+    let files: { path: string; text: string } | undefined;
+    if (next.target?.type === 'lightbox' && before.target.type === 'lightbox' && before.target.file) {
+      const path = this.resolveFile(before.target.file);
+      if (!path) return fail('This note points at a file outside the episode, so it cannot be edited here.');
+      files = { path, text: next.target.text ?? '' };
+      const { text: _gone, ...rest } = next.target;
+      next = { ...next, target: { ...rest, file: before.target.file } };
+    }
+    const checked = this.checkHotspot(next, { ...doc, id }, list.filter((_, i) => i !== at));
+    if (!checked.ok) return checked;
+    if (files) {
+      mkdirSync(dirname(files.path), { recursive: true });
+      writeFileSync(files.path, files.text);
+    }
+    list[at] = checked.value;
+    this.writeDoc(id, doc);
+    return ok;
+  }
+
+  /**
+   * Removes a hotspot. For one on words, the mark is taken off the words and the text is saved without it, so no mark is
+   * left behind. `newText` is the text as the author has it now, which may be ahead of what is saved.
+   */
+  removeHotspot(id: string, hotspotId: string, newText?: string): Result<true> {
+    const found = this.editableSlot(id, 'x');
+    if (!found.ok) return found;
+    const { doc } = found.value;
+    const list = this.hotspotList(doc);
+    const at = list.findIndex((o) => o.id === hotspotId);
+    if (at < 0) return fail('That clickable part is not in this document.');
+    const [gone] = list.splice(at, 1);
+    this.writeDoc(id, doc);
+    if (gone.anchor?.type === 'text') {
+      const slot = gone.anchor.slot;
+      const current = newText ?? this.slotText(id, slot);
+      if (current !== undefined && SLOT_NAME.test(slot)) {
+        const wrote = this.setText(id, slot, removeSpan(current, hotspotId));
+        if (!wrote.ok) return wrote;
+      }
+    }
+    return ok;
+  }
+
+  /** The saved text of a text slot, wherever it lives. */
+  private slotText(id: string, slotName: string): string | undefined {
+    const found = this.editableSlot(id, slotName);
+    if (!found.ok) return undefined;
+    const slot = found.value.slots[slotName];
+    if (!slot) return undefined;
+    if (typeof slot.text === 'string') return slot.text;
+    if (typeof slot.file === 'string') {
+      const file = this.resolveFile(slot.file);
+      if (file && existsSync(file)) return readFileSync(file, 'utf8');
+    }
+    return undefined;
+  }
+
 }

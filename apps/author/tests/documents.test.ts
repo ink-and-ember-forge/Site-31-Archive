@@ -403,3 +403,175 @@ describe('item lists (receipts)', () => {
     expect(after.slots.store.value).toBe('PLACEHOLDER STORE');
   });
 });
+
+import { makeClickable, newRectHotspot, newTextHotspot } from '@archive/casefile/authoring';
+
+describe('hotspots', () => {
+  async function withText(text = 'He saw the grey van outside.') {
+    const e = await episode();
+    e.session.setSlotText('statement', 'body', text);
+    return e;
+  }
+  const clickable = (text: string, words: string) => {
+    const i = text.indexOf(words);
+    const r = makeClickable(text, i, i + words.length);
+    if (!r.ok) throw new Error(r.reason);
+    return r;
+  };
+  const view = async (session: EpisodeSession, id = 'statement') => (await session.state()).documents.find((d) => d.id === id)!;
+
+  it('making words clickable saves the marked text and the hotspot together', async () => {
+    const { session, folder } = await withText();
+    const r = clickable('He saw the grey van outside.', 'the grey van');
+    expect(session.addTextHotspot('statement', 'body', r.text, newTextHotspot(r.id, 'body')).ok).toBe(true);
+    const doc = read(folder, 'documents/statement.json');
+    expect(doc.hotspots).toEqual([{ id: 'the-grey-van', anchor: { type: 'text', slot: 'body' }, target: { type: 'lightbox', variant: 'formal', text: '' } }]);
+    const slot = (await view(session)).slots.find((s) => s.name === 'body')!;
+    expect(slot.text).toBe('He saw [the grey van]{#the-grey-van} outside.');
+    const h = (await view(session)).hotspots[0];
+    expect(h).toMatchObject({ id: 'the-grey-van', words: 'the grey van', noteText: '', valid: true });
+  });
+
+  it('the result opens in the real loader with no warning about the hotspot', async () => {
+    const { session } = await withText();
+    const r = clickable('He saw the grey van outside.', 'the grey van');
+    session.addTextHotspot('statement', 'body', r.text, newTextHotspot(r.id, 'body'));
+    const problems = (await session.state()).problems.map((p) => p.message).join('|');
+    expect(problems).not.toContain('dropped');
+    expect(problems).not.toContain('span in slot');
+  });
+
+  it('refuses a hotspot whose words are not marked in the text, or that is on another slot, or whose id is taken', async () => {
+    const { session, folder } = await withText();
+    const r = clickable('He saw the grey van outside.', 'the grey van');
+    expect(session.addTextHotspot('statement', 'body', 'no marks here', newTextHotspot(r.id, 'body')).ok).toBe(false);
+    expect(session.addTextHotspot('statement', 'body', r.text, newTextHotspot(r.id, 'title')).ok).toBe(false);
+    expect(read(folder, 'documents/statement.json').hotspots ?? []).toEqual([]);
+    expect(session.addTextHotspot('statement', 'body', r.text, newTextHotspot(r.id, 'body')).ok).toBe(true);
+    expect(session.addTextHotspot('statement', 'body', r.text, newTextHotspot(r.id, 'body')).ok).toBe(false);
+    expect(read(folder, 'documents/statement.json').hotspots).toHaveLength(1);
+  });
+
+  it('refuses clickable words on a part of the document that is not written text', async () => {
+    const { session } = await episode();
+    session.addDocument('receipt', 'Till roll');
+    expect(session.addTextHotspot('till-roll', 'store', '[x]{#x}', newTextHotspot('x', 'store')).ok).toBe(false);
+  });
+
+  it('a bad hotspot is refused with a reason, and nothing is written', async () => {
+    const { session, folder } = await withText();
+    const before = readFileSync(join(folder, 'documents/statement.json'), 'utf8');
+    const bad = session.addRectHotspot('statement', { id: 'Bad Id', anchor: { type: 'rect', x: 0, y: 0, width: 1, height: 1 }, target: { type: 'lightbox', text: '' } });
+    expect(bad.ok).toBe(false);
+    expect(readFileSync(join(folder, 'documents/statement.json'), 'utf8')).toBe(before);
+  });
+
+  it('adds a box hotspot, keeping it inside the document', async () => {
+    const { session, folder } = await episode();
+    const box = newRectHotspot('the-corner');
+    box.anchor = { type: 'rect', x: 0.9, y: 0.9, width: 0.5, height: 0.5 };
+    expect(session.addRectHotspot('statement', box).ok).toBe(true);
+    expect(read(folder, 'documents/statement.json').hotspots[0].anchor).toEqual({ type: 'rect', x: 0.5, y: 0.5, width: 0.5, height: 0.5 });
+  });
+
+  it('edits what a hotspot opens: a note, another document, or a registry entry', async () => {
+    const { session, folder } = await withText();
+    session.addDocument('typed', 'Ticket');
+    const r = clickable('He saw the grey van outside.', 'the grey van');
+    session.addTextHotspot('statement', 'body', r.text, newTextHotspot(r.id, 'body'));
+    const h = (await view(session)).hotspots[0];
+    expect(session.setHotspot('statement', { id: h.id, anchor: h.anchor, target: { type: 'lightbox', variant: 'note', title: 'Seen', text: 'A grey van.' } }).ok).toBe(true);
+    expect(read(folder, 'documents/statement.json').hotspots[0].target).toEqual({ type: 'lightbox', variant: 'note', title: 'Seen', text: 'A grey van.' });
+    expect((await view(session)).hotspots[0].noteText).toBe('A grey van.');
+    expect(session.setHotspot('statement', { id: h.id, anchor: h.anchor, target: { type: 'document', document: 'ticket' } }).ok).toBe(true);
+    expect(session.setHotspot('statement', { id: h.id, anchor: h.anchor, target: { type: 'registry', entry: 'test-episode/grey-van' } }).ok).toBe(true);
+    expect(read(folder, 'documents/statement.json').hotspots[0].target).toEqual({ type: 'registry', entry: 'test-episode/grey-van' });
+  });
+
+  it('refuses a hotspot that opens a document that is not there, or the document it is on', async () => {
+    const { session } = await withText();
+    const r = clickable('He saw the grey van outside.', 'the grey van');
+    session.addTextHotspot('statement', 'body', r.text, newTextHotspot(r.id, 'body'));
+    const h = (await view(session)).hotspots[0];
+    expect(session.setHotspot('statement', { id: h.id, anchor: h.anchor, target: { type: 'document', document: 'ghost' } }).ok).toBe(false);
+    expect(session.setHotspot('statement', { id: h.id, anchor: h.anchor, target: { type: 'document', document: 'statement' } }).ok).toBe(false);
+    expect(session.setHotspot('statement', { id: 'nope', anchor: h.anchor, target: { type: 'lightbox', text: 'x' } }).ok).toBe(false);
+  });
+
+  it('the words a hotspot is on cannot be changed through an edit', async () => {
+    const { session } = await withText();
+    const r = clickable('He saw the grey van outside.', 'the grey van');
+    session.addTextHotspot('statement', 'body', r.text, newTextHotspot(r.id, 'body'));
+    const h = (await view(session)).hotspots[0];
+    expect(session.setHotspot('statement', { id: h.id, anchor: { type: 'text', slot: 'title' }, target: h.target }).ok).toBe(false);
+  });
+
+  it('a note kept in its own file is rewritten in that file', async () => {
+    const { session, folder } = await withText();
+    const r = clickable('He saw the grey van outside.', 'the grey van');
+    session.addTextHotspot('statement', 'body', r.text, newTextHotspot(r.id, 'body'));
+    const doc = read(folder, 'documents/statement.json');
+    mkdirSync(join(folder, 'documents'), { recursive: true });
+    writeFileSync(join(folder, 'documents/van-note.md'), 'old note');
+    doc.hotspots[0].target = { type: 'lightbox', file: 'documents/van-note.md' };
+    writeFileSync(join(folder, 'documents/statement.json'), JSON.stringify(doc));
+    const h = (await view(session)).hotspots[0];
+    expect(h.noteText).toBe('old note');
+    expect(session.setHotspot('statement', { id: h.id, anchor: h.anchor, target: { type: 'lightbox', text: 'new note' } }).ok).toBe(true);
+    expect(readFileSync(join(folder, 'documents/van-note.md'), 'utf8')).toBe('new note');
+    expect(read(folder, 'documents/statement.json').hotspots[0].target).toEqual({ type: 'lightbox', file: 'documents/van-note.md' });
+  });
+
+  it('a note that points outside the episode is not written through', async () => {
+    const { session, folder } = await withText();
+    const r = clickable('He saw the grey van outside.', 'the grey van');
+    session.addTextHotspot('statement', 'body', r.text, newTextHotspot(r.id, 'body'));
+    const doc = read(folder, 'documents/statement.json');
+    doc.hotspots[0].target = { type: 'lightbox', file: '../../escaped.md' };
+    writeFileSync(join(folder, 'documents/statement.json'), JSON.stringify(doc));
+    const h = (await view(session)).hotspots[0];
+    expect(session.setHotspot('statement', { id: h.id, anchor: h.anchor, target: { type: 'lightbox', text: 'x' } }).ok).toBe(false);
+  });
+
+  it('removing a hotspot on words takes the mark off the words', async () => {
+    const { session, folder } = await withText();
+    const r = clickable('He saw the grey van outside.', 'the grey van');
+    session.addTextHotspot('statement', 'body', r.text, newTextHotspot(r.id, 'body'));
+    expect(session.removeHotspot('statement', 'the-grey-van').ok).toBe(true);
+    expect(read(folder, 'documents/statement.json').hotspots).toEqual([]);
+    expect((await view(session)).slots.find((s) => s.name === 'body')!.text).toBe('He saw the grey van outside.');
+  });
+
+  it('removing uses the text as the author has it now, which may be ahead of the saved text', async () => {
+    const { session } = await withText();
+    const r = clickable('He saw the grey van outside.', 'the grey van');
+    session.addTextHotspot('statement', 'body', r.text, newTextHotspot(r.id, 'body'));
+    expect(session.removeHotspot('statement', 'the-grey-van', 'He saw [the grey van]{#the-grey-van} outside, then more.').ok).toBe(true);
+    expect((await view(session)).slots.find((s) => s.name === 'body')!.text).toBe('He saw the grey van outside, then more.');
+  });
+
+  it('removing a box hotspot, or one that is not there', async () => {
+    const { session, folder } = await episode();
+    session.addRectHotspot('statement', newRectHotspot('box'));
+    expect(session.removeHotspot('statement', 'box').ok).toBe(true);
+    expect(read(folder, 'documents/statement.json').hotspots).toEqual([]);
+    expect(session.removeHotspot('statement', 'box').ok).toBe(false);
+  });
+
+  it('keeps everything else in the document file when a hotspot changes', async () => {
+    const { session, folder } = await withText();
+    const doc = read(folder, 'documents/statement.json');
+    doc.somethingElse = { keep: true };
+    writeFileSync(join(folder, 'documents/statement.json'), JSON.stringify(doc));
+    session.addRectHotspot('statement', newRectHotspot('box'));
+    expect(read(folder, 'documents/statement.json').somethingElse).toEqual({ keep: true });
+  });
+
+  it('shows a hotspot the file has but the reader would drop as not valid, so it can be seen', async () => {
+    const { session, folder } = await withText();
+    const doc = read(folder, 'documents/statement.json');
+    doc.hotspots = [{ id: 'odd', anchor: { type: 'rect', x: 5, y: 0, width: 1, height: 1 }, target: { type: 'lightbox', text: 'x' } }];
+    writeFileSync(join(folder, 'documents/statement.json'), JSON.stringify(doc));
+    expect((await view(session)).hotspots[0]).toMatchObject({ id: 'odd', valid: false });
+  });
+});

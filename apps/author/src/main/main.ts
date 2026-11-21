@@ -113,6 +113,22 @@ function registerIpc(): void {
     })();
     return session && text(id, 100) && text(slot, 100) && small ? done(session.setItems(id, slot, items)) : bad;
   });
+  // Hotspots are plain data; the file layer checks them in full, so only their size is bounded here.
+  const smallObject = (v: unknown) => {
+    try {
+      return typeof v === 'object' && v !== null && JSON.stringify(v).length <= 60_000;
+    } catch {
+      return false;
+    }
+  };
+  ipcMain.handle('author:add-text-hotspot', (_e, id: unknown, slot: unknown, value: unknown, hotspot: unknown) =>
+    session && text(id, 100) && text(slot, 100) && text(value) && smallObject(hotspot) ? done(session.addTextHotspot(id, slot, value, hotspot)) : bad);
+  ipcMain.handle('author:add-rect-hotspot', (_e, id: unknown, hotspot: unknown) =>
+    session && text(id, 100) && smallObject(hotspot) ? done(session.addRectHotspot(id, hotspot)) : bad);
+  ipcMain.handle('author:set-hotspot', (_e, id: unknown, hotspot: unknown) =>
+    session && text(id, 100) && smallObject(hotspot) ? done(session.setHotspot(id, hotspot)) : bad);
+  ipcMain.handle('author:remove-hotspot', (_e, id: unknown, hotspotId: unknown, value: unknown) =>
+    session && text(id, 100) && text(hotspotId, 100) && (value === undefined || text(value)) ? done(session.removeHotspot(id, hotspotId, value as string | undefined)) : bad);
   ipcMain.handle('author:choose-image', async (_e, id: unknown, slot: unknown) => {
     if (!session || !text(id, 100) || !text(slot, 100)) return bad;
     const picked = await dialog.showOpenDialog(win!, {

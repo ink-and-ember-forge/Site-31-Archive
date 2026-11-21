@@ -1,6 +1,6 @@
 // Pure helpers the authoring tool uses to create and update an episode's files.
 // Kept here, next to the format, so the tool and the format cannot drift apart.
-import { CURRENT_FORMAT_VERSION, type Block, type Layout, type SlotKind } from './types';
+import { CURRENT_FORMAT_VERSION, type Block, type Hotspot, type Layout, type SlotKind } from './types';
 
 /** The episode-level fields the author edits in the form. */
 export interface EpisodeDetails {
@@ -351,4 +351,74 @@ export function editorPlan(template: { slots: { name: string }[]; layout: Block;
   const rest = template.slots.map((s) => s.name).filter((n) => !used.has(n));
   if (rest.length > 0) out.push({ type: 'slots', title: 'Other parts', slots: rest });
   return out;
+}
+
+// ---------------------------------------------------------------- hotspots
+
+const SPAN_PATTERN = /\[([^\]]+)\]\{#([a-z0-9]+(?:-[a-z0-9]+)*)\}/g;
+
+export interface SpanInfo {
+  id: string;
+  /** The clickable words, without the marks around them. */
+  words: string;
+  /** Where the whole mark `[words]{#id}` starts and ends in the text. */
+  start: number;
+  end: number;
+}
+
+/** The clickable spans in a piece of text, in order. */
+export function spansIn(text: string): SpanInfo[] {
+  return [...text.matchAll(SPAN_PATTERN)].map((m) => ({ id: m[2], words: m[1], start: m.index ?? 0, end: (m.index ?? 0) + m[0].length }));
+}
+
+export type MakeClickableResult = { ok: true; text: string; id: string; words: string } | { ok: false; reason: string };
+
+/**
+ * Wraps the selected words in a clickable mark, `[words]{#id}`, and gives it an id made from the words (made unique among
+ * `taken`). Spaces at the ends of the selection are left outside. The selection must be one line, must not already be (or
+ * overlap) a clickable part, and must not contain the characters the mark is made of.
+ */
+export function makeClickable(text: string, start: number, end: number, taken: Iterable<string> = []): MakeClickableResult {
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end > text.length || start >= end) {
+    return { ok: false, reason: 'Select the words first, then press the button.' };
+  }
+  let from = start;
+  let to = end;
+  while (from < to && /\s/.test(text[from])) from++;
+  while (to > from && /\s/.test(text[to - 1])) to--;
+  if (from >= to) return { ok: false, reason: 'Select some words, not just spaces.' };
+  const words = text.slice(from, to);
+  if (/[\r\n]/.test(words)) return { ok: false, reason: 'Select words on one line. A clickable part cannot run across a new line.' };
+  if (/[[\]{}]/.test(words)) return { ok: false, reason: 'The selection contains a bracket, which is used to mark clickable words. Select just the words.' };
+  if (spansIn(text).some((s) => from < s.end && to > s.start)) return { ok: false, reason: 'That part of the text is already clickable.' };
+  const id = uniqueId(slugify(words).slice(0, 40).replace(/-+$/, '') || 'hotspot', taken);
+  return { ok: true, text: `${text.slice(0, from)}[${words}]{#${id}}${text.slice(to)}`, id, words };
+}
+
+/** Takes the clickable mark off a span, leaving the words. */
+export function removeSpan(text: string, id: string): string {
+  return text.replace(SPAN_PATTERN, (whole, words: string, spanId: string) => (spanId === id ? words : whole));
+}
+
+/** A new clickable part's starting point: a plain marginal note, with nothing written in it yet. */
+export function newTextHotspot(id: string, slot: string): Hotspot {
+  return { id, anchor: { type: 'text', slot }, target: { type: 'lightbox', variant: 'formal', text: '' } };
+}
+
+/** A new box on a picture or receipt, where there are no words to mark. */
+export function newRectHotspot(id: string): Hotspot {
+  return { id, anchor: { type: 'rect', x: 0.1, y: 0.1, width: 0.3, height: 0.1 }, target: { type: 'lightbox', variant: 'formal', text: '' } };
+}
+
+/** Keeps a box inside the document (fractions from 0 to 1) and gives it a size. */
+export function clampRect(r: { x: number; y: number; width: number; height: number }) {
+  const width = round(clamp(Number.isFinite(r.width) ? r.width : 0.1, 0.01, 1));
+  const height = round(clamp(Number.isFinite(r.height) ? r.height : 0.1, 0.01, 1));
+  return {
+    type: 'rect' as const,
+    x: round(clamp(Number.isFinite(r.x) ? r.x : 0, 0, 1 - width)),
+    y: round(clamp(Number.isFinite(r.y) ? r.y : 0, 0, 1 - height)),
+    width,
+    height,
+  };
 }

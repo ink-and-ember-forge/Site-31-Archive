@@ -1,6 +1,6 @@
 // The contract between the app's window and its main process. Types only: no code is shared.
 import type { EpisodeDetails } from '@archive/casefile/authoring';
-import type { ItemsContent, Layout, SlotKind as FormatSlotKind } from '@archive/casefile';
+import type { Anchor, Hotspot, ItemsContent, Layout, SlotKind as FormatSlotKind, Target } from '@archive/casefile';
 import type { PlanItem } from '@archive/casefile/authoring';
 
 export interface Problem {
@@ -38,6 +38,19 @@ export interface SlotView {
   legacyText?: string;
 }
 
+/** One clickable part of a document, as the form shows it. */
+export interface HotspotView {
+  id: string;
+  anchor: Anchor;
+  target: Target;
+  /** For a hotspot on words: the words, or undefined if the marked words are no longer in the text. */
+  words?: string;
+  /** For a marginal note: its text, wherever it is kept. */
+  noteText?: string;
+  /** False when the file's version would be dropped by the reader (so it needs fixing in the file). */
+  valid: boolean;
+}
+
 export interface DocumentView {
   id: string;
   template: string;
@@ -49,7 +62,19 @@ export interface DocumentView {
   slots: SlotView[];
   /** How the template's form is arranged, so the tool can mirror the paper. Empty for an unknown template. */
   plan: PlanItem[];
+  hotspots: HotspotView[];
   /** False when the document's file could not be read; it is then listed but cannot be edited. */
+  readable: boolean;
+}
+
+/** One registry entry, as listed. */
+export interface RegistryView {
+  id: string;
+  /** `<episode-id>/<entry-id>`, which is what a hotspot or another entry refers to. */
+  globalId: string;
+  kind: string;
+  title: string;
+  /** False when the entry's file could not be read. */
   readable: boolean;
 }
 
@@ -59,6 +84,7 @@ export interface EpisodeState {
   id: string;
   details: EpisodeDetails;
   documents: DocumentView[];
+  registry: RegistryView[];
   templates: TemplateInfo[];
   problems: Problem[];
 }
@@ -83,6 +109,14 @@ export interface AuthorApi {
   setImageAlt(id: string, slot: string, alt: string): Promise<Result<EpisodeState>>;
   /** Saves an itemised list. The list is checked again before it is written. */
   setItems(id: string, slot: string, items: ItemsContent): Promise<Result<EpisodeState>>;
+  /** Makes words clickable: saves the text with the words marked and adds the hotspot together. */
+  addTextHotspot(id: string, slot: string, text: string, hotspot: Hotspot): Promise<Result<EpisodeState>>;
+  /** Adds a box on a picture or receipt. */
+  addRectHotspot(id: string, hotspot: Hotspot): Promise<Result<EpisodeState>>;
+  /** Replaces a hotspot (same id) with an edited one. */
+  setHotspot(id: string, hotspot: Hotspot): Promise<Result<EpisodeState>>;
+  /** Removes a hotspot. `text` is the text as the author has it now, so the mark on the words comes off with it. */
+  removeHotspot(id: string, hotspotId: string, text?: string): Promise<Result<EpisodeState>>;
   revealFolder(): Promise<void>;
   /** Called each time the preview has been rebuilt. Returns a function that stops listening. */
   onPreview(callback: (info: { version: number; id: string }) => void): () => void;

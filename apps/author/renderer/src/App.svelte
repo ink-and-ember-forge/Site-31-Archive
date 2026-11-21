@@ -194,7 +194,7 @@
 
       {#if selectedDoc}
         {#key selectedDoc.id}
-          <DocumentEditor doc={selectedDoc} autosave={editAutosave} {now} onback={() => select(null)} />
+          <DocumentEditor doc={selectedDoc} others={episode.documents.filter((d) => d.id !== selectedDoc.id).map((d) => ({ id: d.id, label: d.hidden ? `${d.id} (hidden)` : d.id }))} registry={episode.registry} autosave={editAutosave} {now} onback={() => select(null)} />
         {/key}
       {:else}
         <EpisodePanel {episode} bind:form bind:orderText onchange={saveDetails} onselect={select} onadd={addDocument} />

@@ -335,3 +335,81 @@ describe('editorPlan (the tool\'s form follows the paper)', () => {
     }
   });
 });
+
+import { clampRect, makeClickable, newRectHotspot, newTextHotspot, removeSpan, spansIn } from '../src/authoring';
+import { extractSpanIds } from '../src/markdown';
+import { validateHotspot } from '../src/validate';
+
+describe('making words clickable', () => {
+  const text = 'He saw the grey van outside.\nThen it left.';
+  const at = (needle: string) => [text.indexOf(needle), text.indexOf(needle) + needle.length] as const;
+
+  it('wraps the selection and makes an id from the words', () => {
+    const r = makeClickable(text, ...at('the grey van'));
+    expect(r).toEqual({ ok: true, text: 'He saw [the grey van]{#the-grey-van} outside.\nThen it left.', id: 'the-grey-van', words: 'the grey van' });
+    expect(extractSpanIds((r as { text: string }).text)).toEqual(['the-grey-van']);
+  });
+  it('leaves spaces at the ends of the selection outside the mark', () => {
+    const r = makeClickable(text, text.indexOf(' the grey van ') , text.indexOf(' the grey van ') + ' the grey van '.length);
+    expect((r as { text: string }).text).toContain('saw [the grey van]{#the-grey-van} outside');
+  });
+  it('makes the id unique among the ids already taken', () => {
+    expect((makeClickable(text, ...at('van'), ['van', 'van-2']) as { id: string }).id).toBe('van-3');
+  });
+  it('falls back to a plain id for words with no letters or digits, and shortens long ones', () => {
+    expect((makeClickable('say !!! now', 4, 7) as { id: string }).id).toBe('hotspot');
+    const long = makeClickable('x ' + 'word '.repeat(30), 2, 2 + 'word '.repeat(30).length - 1) as { id: string };
+    expect(long.id.length).toBeLessThanOrEqual(40);
+    expect(long.id.endsWith('-')).toBe(false);
+  });
+  it('refuses nothing selected, spaces only, and out-of-range selections, with a reason', () => {
+    for (const [s, e] of [[3, 3], [5, 2], [-1, 4], [0, 999]] as const) expect(makeClickable(text, s, e).ok, `${s}-${e}`).toBe(false);
+    expect(makeClickable('a   b', 1, 4)).toMatchObject({ ok: false, reason: expect.stringContaining('not just spaces') });
+  });
+  it('refuses a selection across lines, or with brackets in it', () => {
+    expect(makeClickable(text, 4, text.indexOf('Then') + 4)).toMatchObject({ ok: false, reason: expect.stringContaining('one line') });
+    expect(makeClickable('a [b] c', 0, 7)).toMatchObject({ ok: false, reason: expect.stringContaining('bracket') });
+    expect(makeClickable('a {b} c', 0, 7).ok).toBe(false);
+  });
+  it('refuses words that are already clickable, or overlap a clickable part', () => {
+    const marked = 'See [the van]{#the-van} now';
+    expect(makeClickable(marked, 5, 8)).toMatchObject({ ok: false, reason: expect.stringContaining('already clickable') });
+    expect(makeClickable(marked, 0, 8).ok).toBe(false);
+    expect(makeClickable(marked, 0, 3).ok).toBe(true);
+  });
+  it('works with accents and other languages', () => {
+    const r = makeClickable('Il a vu la fourgonnette grise', 11, 29) as { id: string; text: string };
+    expect(r.id).toBe('fourgonnette-grise');
+  });
+});
+
+describe('spansIn and removeSpan', () => {
+  const marked = 'A [one]{#one} and [two words]{#two-words}.';
+  it('lists the spans with their words and places', () => {
+    expect(spansIn(marked)).toEqual([
+      { id: 'one', words: 'one', start: 2, end: 13 },
+      { id: 'two-words', words: 'two words', start: 18, end: 41 },
+    ]);
+  });
+  it('takes the mark off one span and leaves the rest', () => {
+    expect(removeSpan(marked, 'one')).toBe('A one and [two words]{#two-words}.');
+    expect(removeSpan(marked, 'nope')).toBe(marked);
+  });
+  it('making clickable and removing again gives back the original text', () => {
+    const r = makeClickable('He saw the van.', 7, 14) as { text: string; id: string };
+    expect(removeSpan(r.text, r.id)).toBe('He saw the van.');
+  });
+});
+
+describe('new hotspots', () => {
+  it('start as a plain marginal note that the format accepts', () => {
+    expect(validateHotspot(newTextHotspot('the-van', 'body'))).toBe(true);
+    expect(validateHotspot(newRectHotspot('box'))).toBe(true);
+    expect(newTextHotspot('a', 'body').anchor).toEqual({ type: 'text', slot: 'body' });
+  });
+  it('clampRect keeps a box inside the document with a size', () => {
+    expect(clampRect({ x: 0.9, y: -1, width: 0.5, height: 0 })).toEqual({ type: 'rect', x: 0.5, y: 0, width: 0.5, height: 0.01 });
+    expect(clampRect({ x: NaN, y: NaN, width: NaN, height: NaN })).toMatchObject({ x: 0, y: 0, width: 0.1, height: 0.1 });
+    expect(validateHotspot({ id: 'b', anchor: clampRect({ x: 2, y: 2, width: 2, height: 2 }), target: { type: 'lightbox', text: '' } })).toBe(true);
+  });
+});
