@@ -248,6 +248,29 @@ Selecting or editing a document focuses it in the preview; editing positions ste
 New documents appear in place, a hidden document is revealed when it is the one being edited, and a failed reload leaves the old
 table on screen. The messages are origin-checked in both directions, and do nothing on the public website.
 
+## 2026-11-20: Richer receipts approved; step 1 (format and maths) built
+
+The author approved `docs/receipt-proposal.md`: named tax categories on each receipt, per-item product code and quantity at unit price,
+tender and change, and free-text slots for everything else, with paper wear left for later. Step 1 is in: all additive, `formatVersion`
+stays 1, and older single-rate receipts load and total exactly as before (read as one category, "T"). Money stays whole pence; quantities are
+held in thousandths; each category is rounded on its own so the printed table adds up. Bad categories, item fields and tenders are dropped
+or ignored with a reason, never losing the receipt. The tool does not yet edit the new fields, so until step 3 such a receipt must be edited by hand.
+
+## 2026-11-21: Richer receipts, step 2 (viewer) built
+
+The receipt now shows what the four example receipts have: logo, store, address and detail lines, items with product codes, quantity at unit price
+lines and a tax letter, subtotal and tax lines (when tax is added on top), total, tender and change due, a tax table (rate, sales, tax per category),
+a payment block, notes, closing message, and a barcode with its number. New parts `tax-table` and `tender`; `paragraph` accepts a plain one-line slot
+and `image` an optional `width`, so older receipts still render. Still additive, `formatVersion` 1. Paper wear remains a later step.
+
+## 2026-11-21: Richer receipts, step 3 (the tool) built
+
+The authoring tool now edits everything the receipt can hold: tax categories (code, name, rate) with a per-item picker and a setting for added or
+included tax, product codes, quantity at unit price, tender and change, with totals from the same code as the viewer. The free-text parts (header
+details, payment details, notes, closing message, barcode number) sit in collapsible form sections, named by `formSection` on a template block, so any
+template can do the same. Older single-rate receipts open as one category "T" and save in the new form with the same figures. Saving never drops
+the new fields, so the step 1 warning is gone. Paper wear remains a later step.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,

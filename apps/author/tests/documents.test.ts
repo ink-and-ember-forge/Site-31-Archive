@@ -111,6 +111,36 @@ describe('editing content', () => {
     expect(read(folder, 'documents/statement.json').slots.body).toEqual({ kind: 'markdown', text: 'changed' });
   });
 
+  it('shows an older one-line value in a text part, and a save turns it into text', async () => {
+    const { session, folder } = await episode();
+    session.addDocument('receipt', 'Till roll');
+    const doc = read(folder, 'documents/till-roll.json');
+    doc.slots.payment = { kind: 'value', value: 'CARD ****0000' };
+    writeFileSync(join(folder, 'documents', 'till-roll.json'), JSON.stringify(doc));
+    const slot = (await session.state()).documents.find((d) => d.id === 'till-roll')!.slots.find((s) => s.name === 'payment')!;
+    expect(slot.kind).toBe('markdown');
+    expect(slot.text).toBe('CARD ****0000');
+    session.setSlotText('till-roll', 'payment', 'CARD ****0000\nAPPROVAL 000000');
+    expect(read(folder, 'documents/till-roll.json').slots.payment).toEqual({ kind: 'markdown', text: 'CARD ****0000\nAPPROVAL 000000' });
+  });
+
+  it('keeps categories, codes, quantities and the tender when a list is saved and read back', async () => {
+    const { session, folder } = await episode();
+    session.addDocument('receipt', 'Till roll');
+    const list = {
+      kind: 'items',
+      currency: '£',
+      taxes: [{ code: 'A', label: 'VAT', rate: 20 }],
+      taxMode: 'included',
+      tender: { method: 'CASH', amount: 10 },
+      items: [{ name: 'PLACEHOLDER', code: '12', quantity: 2, unitPrice: 1.5, tax: 'A' }],
+    };
+    expect(session.setItems('till-roll', 'items', list).ok).toBe(true);
+    expect(read(folder, 'documents/till-roll.json').slots.items).toEqual(list);
+    const slot = (await session.state()).documents.find((d) => d.id === 'till-roll')!.slots.find((s) => s.name === 'items')!;
+    expect(slot.items).toEqual(list);
+  });
+
   it('refuses to write through a file path that leaves the episode folder', async () => {
     const { dir, session, folder } = await episode();
     const docPath = join(folder, 'documents', 'statement.json');

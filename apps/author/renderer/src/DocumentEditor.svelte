@@ -46,6 +46,14 @@
           <h3 class="bar">{item.text}</h3>
         {:else if item.type === 'grid'}
           <FieldGridForm docId={doc.id} rows={item.rows} slots={slotMap} {autosave} />
+        {:else if item.collapsible}
+          <!-- Parts most documents leave empty: closed to keep the form short, open when something is already written. -->
+          <details class="section" open={untrack(() => item.slots.some((n) => slotMap[n]?.text || slotMap[n]?.image))}>
+            <summary>{item.title}</summary>
+            {#each item.slots as name (name)}
+              {#if slotMap[name]}<SlotField docId={doc.id} slot={slotMap[name]} {autosave} {now} />{/if}
+            {/each}
+          </details>
         {:else}
           {#if item.title}<h3>{item.title}</h3>{/if}
           {#each item.slots as name (name)}
@@ -86,6 +94,8 @@
 
 <style>
   h2 { margin: 0.6rem 0 0; font-size: 1.1rem; }
+  .section { margin: 0.9rem 0; border-top: 1px solid var(--line); padding-top: 0.5rem; }
+  .section summary { cursor: pointer; font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem; }
   h3.bar { background: #0d0d0d; color: #fff; letter-spacing: 0.1em; text-align: center; padding: 0.15rem 0; margin: 1.2rem 0 0.5rem; font-size: 0.72rem; }
   h3 { font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: normal; margin: 1.4rem 0 0.5rem; }
   .kind { color: var(--muted); margin: 0.1rem 0 1rem; }

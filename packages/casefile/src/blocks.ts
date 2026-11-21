@@ -18,6 +18,8 @@ export const KNOWN_BLOCKS = [
   'field-grid',
   'ruled-lines',
   'items-list',
+  'tax-table',
+  'tender',
   'barcode',
   'rule',
   'split-row',
@@ -34,7 +36,7 @@ const SLOT_PROPS: Partial<Record<string, string[]>> = {
   title: ['subtitle'],
   letterhead: ['crest', 'name', 'lines', 'reference', 'revision'],
   stamp: ['text', 'date'],
-  barcode: ['seed'],
+  barcode: ['seed', 'number'],
   'split-row': ['left', 'right'],
 };
 

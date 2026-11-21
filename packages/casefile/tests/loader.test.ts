@@ -290,3 +290,44 @@ describe('itemised lists and ticked choices', () => {
     expect(r.casefile.documents.find((d) => d.id === 'receipt')!.slots.items).toMatchObject({ kind: 'markdown' });
   });
 });
+
+describe('richer receipts', () => {
+  const receiptDoc = (slots: Record<string, unknown>) => ({ template: 'receipt', role: 'supporting', slots });
+
+  it('loads tax categories, item fields and a tender exactly as written', async () => {
+    const items = {
+      kind: 'items',
+      currency: '£',
+      taxes: [{ code: 'A', label: 'VAT', rate: 20 }],
+      taxMode: 'included',
+      tender: { method: 'CASH', amount: 10 },
+      items: [{ name: 'PLACEHOLDER TEA', code: '123', quantity: 2, unitPrice: 1.5, tax: 'A' }],
+    };
+    const r = await loadCasefile(await sampleWith({ 'documents/receipt.json': receiptDoc({ items }) }));
+    if (!r.ok) throw new Error('should load');
+    expect(r.warnings).toEqual([]);
+    expect(r.casefile.documents.find((d) => d.id === 'receipt')!.slots.items).toEqual(items);
+  });
+
+  it('keeps the receipt when a category, an item field and the tender are all bad, with a reason for each', async () => {
+    const items = {
+      kind: 'items',
+      taxes: [{ code: 'A', rate: 20 }, { code: 'A', rate: 5 }],
+      tender: { amount: 'lots' },
+      items: [{ name: 'GOOD', price: 1, tax: 'A' }, { name: 'ODD', price: 1, quantity: 2 }, { name: 'NONE' }],
+    };
+    const r = await loadCasefile(await sampleWith({ 'documents/receipt.json': receiptDoc({ items }) }));
+    if (!r.ok) throw new Error('should load');
+    const slot = r.casefile.documents.find((d) => d.id === 'receipt')!.slots.items as { items: { name: string }[] };
+    expect(slot.items.map((i) => i.name)).toEqual(['GOOD', 'ODD']);
+    expect(r.warnings).toHaveLength(4);
+  });
+
+  it('an older receipt with a single tax setting still loads unchanged', async () => {
+    const items = { kind: 'items', currency: '£', tax: { mode: 'added', rate: 20, label: 'VAT' }, items: [{ name: 'A', price: 4.5, taxable: true }] };
+    const r = await loadCasefile(await sampleWith({ 'documents/receipt.json': receiptDoc({ items }) }));
+    if (!r.ok) throw new Error('should load');
+    expect(r.warnings).toEqual([]);
+    expect(r.casefile.documents.find((d) => d.id === 'receipt')!.slots.items).toEqual(items);
+  });
+});

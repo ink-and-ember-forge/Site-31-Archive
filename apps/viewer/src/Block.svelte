@@ -10,6 +10,8 @@
   import Rich from './Rich.svelte';
   import RuledLines from './RuledLines.svelte';
   import StampBlock from './StampBlock.svelte';
+  import TaxTable from './TaxTable.svelte';
+  import Tender from './Tender.svelte';
 
   let { block, content }: { block: BlockDef; content: Record<string, Content> } = $props();
 
@@ -40,7 +42,9 @@
     {#if slotText('subtitle')}<p class="subtitle">{slotText('subtitle')}</p>{/if}
   {/if}
 {:else if block.block === 'paragraph' || block.block === 'table'}
-  {#if slot?.kind === 'markdown'}<div class="para" style:text-align={align}><Rich blocks={slot.blocks} /></div>{/if}
+  {#if slot?.kind === 'markdown'}<div class="para" style:text-align={align}><Rich blocks={slot.blocks} /></div>
+  {:else if slot?.kind === 'value' && slot.value}<!-- an older receipt's one-line payment text -->
+    <p class="para plain" style:text-align={align}>{slot.value}</p>{/if}
 {:else if block.block === 'field-row'}
   <div class="field">
     <span>{opts.label ?? ''}</span><strong>{text}</strong>
@@ -59,12 +63,18 @@
   <RuledLines {block} {content} />
 {:else if block.block === 'items-list'}
   <ItemsList {block} {content} />
+{:else if block.block === 'tax-table'}
+  <TaxTable {block} {content} />
+{:else if block.block === 'tender'}
+  <Tender {block} {content} />
 {:else if block.block === 'stamp'}
   <StampBlock {block} {content} />
 {:else if block.block === 'barcode'}
   <Barcode {block} {content} />
 {:else if block.block === 'image'}
-  {#if slot?.kind === 'image'}<img src={slot.url} alt={slot.alt} draggable="false" />{/if}
+  {#if slot?.kind === 'image'}
+    <img src={slot.url} alt={slot.alt} draggable="false" style:width={typeof opts.width === 'string' ? opts.width : undefined} class:centred={typeof opts.width === 'string'} />
+  {/if}
 {:else if block.block === 'caption'}
   {#if text}<p class="caption" style:text-align={align}>{text}</p>{/if}
 {/if}
@@ -83,5 +93,7 @@
   .bar.grey { background: var(--grey-bg); color: var(--ink); border: 0.18cqw solid var(--line); }
   .bar.plain { background: transparent; color: var(--ink); border-bottom: 0.18cqw solid var(--line); }
   img { width: 100%; display: block; }
+  img.centred { margin: 0 auto 1.6cqw; }
+  .para.plain { margin: 0 0 0.3em; white-space: pre-line; }
   .caption { margin: 0.4em 0 0; font-size: 0.85em; text-align: center; }
 </style>
