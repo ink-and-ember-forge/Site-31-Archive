@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.6](https://github.com/ink-and-ember-forge/Site-31-Archive/compare/site-31-archive-v0.1.5...site-31-archive-v0.1.6) (2026-11-21)
+
+
+### Features
+
+* **author:** edit tax categories, item codes, quantities and tender on receipts ([f47baaa](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/f47baaa63a6e3a9a84a7253de9368236aac9f3a8))
+* **casefile:** tax categories, item fields and tender for receipts ([2780ee4](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/2780ee4773c63929bc72ab9b4bedd35ffeb033b1))
+* richer receipts (tax categories, item codes, quantities, tender) in the format, viewer and tool ([5339c44](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/5339c44d16ebb874f8bf90043f189a2e06238371))
+* **viewer:** richer receipts with tax table, tender, quantity lines and codes ([daa396c](https://github.com/ink-and-ember-forge/Site-31-Archive/commit/daa396cac660705bd017b451db3a8c1bf11a32fc))
+
 ## [0.1.5](https://github.com/ink-and-ember-forge/Site-31-Archive/compare/site-31-archive-v0.1.4...site-31-archive-v0.1.5) (2026-11-20)
 
 
