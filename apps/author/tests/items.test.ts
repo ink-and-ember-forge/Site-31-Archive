@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { ItemsContent } from '@archive/casefile';
 import { computeTotals, normaliseItems } from '@archive/casefile';
-import { buildContent, draftFrom, moveRow, newCategory, newRow, usesDetails, type Draft } from '../renderer/src/lib/items';
+import { buildContent, draftFrom, emptyOverrides, moveRow, newCategory, newDiscount, newRow, usesDetails, type Draft } from '../renderer/src/lib/items';
 
-const draft = (over: Partial<Draft> = {}): Draft => ({ currency: '', taxMode: 'added', categories: [], rows: [], tenderMethod: '', tenderAmount: '', ...over });
+const draft = (over: Partial<Draft> = {}): Draft => ({ currency: '', taxMode: 'added', categories: [], rows: [], tenderMethod: '', tenderAmount: '', overrides: emptyOverrides(), ...over });
 const cats = () => [newCategory({ code: 'A', label: 'VAT', rateText: '20' }), newCategory({ code: 'B', label: 'VAT', rateText: '0' })];
 
 describe('draftFrom (opening a saved list for editing)', () => {
@@ -206,20 +206,79 @@ describe('buildContent (what is saved)', () => {
     expect([totals.subtotal, totals.taxableBase, totals.tax, totals.total, totals.change]).toEqual([1850, 1650, 330, 2180, 320]);
   });
 
-  it('saving never drops discounts, printed text or overrides, which the form cannot edit yet', () => {
+  it('a list with discounts, printed text and overrides opened for editing and saved again is exactly what it was', () => {
     const original: ItemsContent = {
       kind: 'items',
       currency: '£',
       taxes: [{ code: 'A', rate: 20 }],
       taxMode: 'added',
       overrides: { total: 'VOID', tax: { A: '1.0O' } },
-      items: [{ name: 'A', price: 10, discounts: [{ label: 'SAVE', amount: 1 }], tax: 'A', printed: '1O' }, { name: 'B', price: 2 }],
+      items: [{ name: 'A', price: 10, discounts: [{ label: 'SAVE', amount: 1 }, { amount: 0.5 }], tax: 'A', printed: '1O' }, { name: 'B', price: 2 }],
     };
-    expect(buildContent(draftFrom(original)).content).toEqual(original);
+    const d = draftFrom(original);
+    expect(d.rows[0].discounts.map((x) => [x.label, x.amountText])).toEqual([['SAVE', '1'], ['', '0.50']]);
+    expect(d.overrides).toMatchObject({ total: 'VOID', tax: { A: '1.0O' } });
+    expect(buildContent(d).content).toEqual(original);
   });
 
   it('shows the price before discounts when a row is opened for editing', () => {
     expect(draftFrom({ kind: 'items', items: [{ name: 'A', price: 10, discounts: [{ amount: 1 }] }] }).rows[0].priceText).toBe('10');
+  });
+
+  it('builds discounts on an item, in reading order, trimming labels', () => {
+    const built = buildContent(draft({ rows: [newRow({ name: 'A', priceText: '10', discounts: [newDiscount({ label: ' MULTIBUY ', amountText: '2,50' }), newDiscount({ amountText: '1' })] })] }));
+    expect(built.content?.items).toEqual([{ name: 'A', price: 10, discounts: [{ label: 'MULTIBUY', amount: 2.5 }, { amount: 1 }] }]);
+    expect(computeTotals(built.content!)).toMatchObject({ subtotal: 650, savings: 350 });
+  });
+
+  it('ignores an empty discount row, and a row that is only a discount is not blank', () => {
+    const built = buildContent(draft({ rows: [newRow({ name: 'A', priceText: '5', discounts: [newDiscount()] })] }));
+    expect(built.content?.items).toEqual([{ name: 'A', price: 5 }]);
+  });
+
+  it('holds the save for a bad discount, with the reason', () => {
+    const bad = (d: Partial<Parameters<typeof newDiscount>[0]>, price = '5') => buildContent(draft({ rows: [newRow({ name: 'A', priceText: price, discounts: [newDiscount(d)] })] }));
+    expect(bad({ amountText: 'lots' }).content).toBeNull();
+    expect(Object.values(bad({ amountText: '0' }).rowErrors)[0]).toContain('above 0');
+    expect(Object.values(bad({ amountText: '-1' }).rowErrors)[0]).toContain('above 0');
+    expect(Object.values(bad({ amountText: '6' }).rowErrors)[0]).toContain('more than the line');
+    expect(Object.values(bad({ amountText: '1' }, '0').rowErrors)[0]).toContain('free or negative');
+    expect(Object.values(bad({ amountText: '1', label: 'x'.repeat(31) }).rowErrors)[0]).toContain('label');
+    expect(bad({ label: 'only a label' }).content).toBeNull();
+    const six = buildContent(draft({ rows: [newRow({ name: 'A', priceText: '5', discounts: Array.from({ length: 6 }, () => newDiscount({ amountText: '0.1' })) })] }));
+    expect(Object.values(six.rowErrors)[0]).toContain('at most 5');
+  });
+
+  it('discounts work on a quantity line', () => {
+    const built = buildContent(draft({ rows: [newRow({ name: 'A', quantityText: '3', unitPriceText: '1.5', discounts: [newDiscount({ amountText: '1' })] })] }));
+    expect(computeTotals(built.content!).subtotal).toBe(350);
+    const tooMuch = buildContent(draft({ rows: [newRow({ name: 'A', quantityText: '3', unitPriceText: '1.5', discounts: [newDiscount({ amountText: '4.6' })] })] }));
+    expect(tooMuch.content).toBeNull();
+  });
+
+  it('printed text on an item and on figures is kept as typed, trimmed, and blank means none', () => {
+    const built = buildContent(
+      draft({
+        categories: [newCategory({ code: 'A', rateText: '20' })],
+        overrides: { subtotal: ' 9.9O ', total: 'VOID', change: '', savings: '  ', tax: { A: '0.0O', Z: 'gone', B: '' } },
+        rows: [newRow({ name: 'A', priceText: '5', taxCode: 'A', printed: ' 5.0O ' }), newRow({ name: 'B', priceText: '1', printed: '  ' })],
+      }),
+    );
+    expect(built.content?.items).toEqual([{ name: 'A', price: 5, tax: 'A', printed: '5.0O' }, { name: 'B', price: 1 }]);
+    expect(built.content?.overrides).toEqual({ subtotal: '9.9O', total: 'VOID', tax: { A: '0.0O' } });
+  });
+
+  it('holds the save when printed text is too long', () => {
+    const long = 'x'.repeat(31);
+    expect(buildContent(draft({ rows: [newRow({ name: 'A', priceText: '1', printed: long })] })).content).toBeNull();
+    const o = buildContent(draft({ overrides: { ...emptyOverrides(), total: long } }));
+    expect(o.content).toBeNull();
+    expect(o.overrideError).toContain('printed total');
+  });
+
+  it('a row that only has discount or printed text counts as using the extra columns', () => {
+    expect(usesDetails(draft({ rows: [newRow({ name: 'A', priceText: '1', discounts: [newDiscount()] })] }))).toBe(true);
+    expect(usesDetails(draft({ rows: [newRow({ name: 'A', priceText: '1', printed: 'x' })] }))).toBe(true);
   });
 
   it('removing a category from the list leaves nothing behind in the saved file', () => {

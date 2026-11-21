@@ -69,7 +69,8 @@
     {
       "name": "qr",
       "kind": "value",
-      "label": "QR code message (a phone can scan it)"
+      "label": "QR code message (a phone can scan it)",
+      "maxLength": 300
     },
     {
       "name": "qrCaption",

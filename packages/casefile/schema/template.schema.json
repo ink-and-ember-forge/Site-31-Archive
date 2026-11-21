@@ -54,6 +54,10 @@
           },
           "label": {
             "type": "string"
+          },
+          "maxLength": {
+            "type": "integer",
+            "minimum": 1
           }
         }
       }

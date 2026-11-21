@@ -141,7 +141,7 @@ Details settled while building step 3:
 
 # Round two: discounts, overrides, sections, barcode and QR
 
-**Status: approved by the author on 2026-11-21. Steps 1 and 2 of 3 (format and money; viewer and template) are built; the tool is next.** One bug fix (a
+**Status: approved by the author on 2026-11-21. All three steps are built.** One bug fix (a
 form section closing itself while typed in) shipped separately.
 
 ## Decisions already made (author, 2026-11-21)
@@ -228,7 +228,7 @@ receipts that use none of this.
 | --- | --- |
 | 1. Format, money and loader | **Built.** Discounts, printed text on items and overrides for the subtotal, total, change, savings and each category's tax, computed total savings, 19 more tests. Sections and the QR part come with step 2, since they are template and viewer work. |
 | 2. Viewer | **Built.** Discount lines, total savings, printed overrides, a real QR code, bars that follow the barcode number, and template sections (`sections` and a block's `section`). |
-| 3. Authoring tool | Next |
+| 3. Authoring tool | **Built.** Discount rows, "printed as" boxes on items and on every worked-out figure with a warning when they differ, a QR message box with a character count, sections as collapsible groups. |
 
 Details settled while building step 1:
 
@@ -237,7 +237,6 @@ Details settled while building step 1:
 - Subtotal, tax and total all use the discounted lines. Total savings is the sum of the discounts that count; negative items do not count.
 - Printed text is limited to 30 characters. A printed tax for a category that does not exist is ignored with a reason.
 - `printedDiffers(text, figure)` decides whether the tool should warn: it compares only the digits and sign, so "£18.50" and "18,50" match 18.50, while "VOID", "--.--" and "18.5O" (a letter O) do not.
-- Until step 3, the tool keeps a receipt's discounts, printed text and overrides exactly as they are when it saves, so nothing is lost, but it cannot edit them yet. Edit those by hand until then.
 
 Details settled while building step 2:
 
@@ -245,3 +244,11 @@ Details settled while building step 2:
 - **QR:** a real QR code (medium error correction, smallest size that fits, UTF-8), drawn as one crisp vector. I decoded the one on the sample receipt from a screenshot to confirm it scans back to the message. Messages are limited to 300 characters. The encoder is `qrcode-generator` 2.0.4 (MIT licence), pinned; it adds about 10 kB (gzipped) to the viewer.
 - **Barcode:** the bars follow the printed number when there is one, otherwise the old seed. Still decorative.
 - **Sections:** `sections` on a template (`id`, `name`, and an optional `open`), and `section` on a block, inherited by its children. The form shows one collapsible group per section, in the template's order, with anything outside a section first. A section opens if its template entry says `open` or something is already written in it, and then stays as the author leaves it. The theme build fails on a block in a section the template does not define. The receipt's sections are Heading, Top line, Main body and Footer; the witness form keeps its printed section bars. The earlier `formSection` setting is gone.
+
+Details settled while building step 3:
+
+- Each item's extra row (switched on by "Show more for each item") holds product code, quantity, unit price, its discounts (label and amount off, with an Add discount button) and a "Printed as" box. The price box keeps showing the price before discounts.
+- The totals box is a table with three columns: the figure, the worked-out value, and a "Printed as" box. Subtotal, each category's tax, total, total savings (when there are any) and change due each have one. A note under a filled box says either that it differs from the worked-out figure (shown in the warning colour) or that it matches it.
+- Renaming a tax category's code moves its printed tax, and removing a category removes it.
+- A discount must be a price above 0 and, together with the others, no more than the line; at most 5 per item; a free or negative line takes none. Otherwise the save is held with the reason, as for every other box.
+- A template slot may set `maxLength` (the receipt's QR message is 300). The tool limits the box, shows "n of 300 characters", and the file layer refuses longer text.

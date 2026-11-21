@@ -15,7 +15,8 @@
 {#if slot.kind === 'value'}
   <label>
     <span>{label}</span>
-    <input bind:value={text} oninput={() => autosave(`text:${slot.name}`, () => window.author.setSlotText(docId, slot.name, text))} />
+    <input bind:value={text} maxlength={slot.maxLength} oninput={() => autosave(`text:${slot.name}`, () => window.author.setSlotText(docId, slot.name, text))} />
+    {#if slot.maxLength}<small class="count">{text.length} of {slot.maxLength} characters</small>{/if}
   </label>
 {:else if slot.kind === 'markdown'}
   <label>
@@ -42,6 +43,7 @@
 
 <style>
   textarea { font: 0.95rem/1.5 Consolas, 'Courier New', monospace; color: inherit; background: #1a1510; border: 1px solid var(--line); border-radius: 4px; padding: 0.5rem; width: 100%; resize: vertical; }
+  .count { display: block; margin-top: 0.2rem; color: var(--muted); font-size: 0.75rem; }
   .label { display: block; margin-bottom: 0.25rem; color: var(--muted); font-size: 0.85rem; }
   .image { margin-bottom: 0.9rem; }
   .file { margin: 0 0 0.4rem; word-break: break-all; }

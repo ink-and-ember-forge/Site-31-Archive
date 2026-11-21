@@ -143,4 +143,4 @@ After trying the tool, the author asked for forms that fit each kind of paper an
 ## Receipts (added 2026-11-21)
 
 The receipt form has tax categories with a picker on each item, optional product codes and quantity at unit price, a payment (tender) box with
-live change, and collapsible sections for the header details, payment details and notes. See `receipt-proposal.md`.
+live change, discounts under items, "printed as" boxes (with a warning when a printed figure differs from the worked-out one), a QR message, and the form grouped into the template's collapsible sections. See `receipt-proposal.md`.

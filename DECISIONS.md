@@ -285,6 +285,13 @@ barcode number. Templates may declare `sections` (with an optional `open`) and b
 replacing the earlier `formSection`. The QR uses `qrcode-generator` 2.0.4 (MIT, pinned, about 10 kB gzipped), and its output was decoded from a screenshot to check it scans.
 Messages are limited to 300 characters. The tool for editing the new fields is step 3.
 
+## 2026-11-21: Receipt round two, step 3 (the tool) built
+
+The tool edits discounts (label and amount, with a limit that keeps them within the line), printed text on items, and printed overrides for the subtotal, each category's
+tax, total, savings and change, each with a note saying whether it differs from the worked-out figure. The QR message and caption are ordinary boxes, and a template slot
+may now set `maxLength` (300 for the QR message), enforced in the tool and in the file layer. The form is grouped by the template's sections. Style picker and receipt looks
+are the next round.
+
 ## Still open (from the design document)
 
 Hosting beyond GitHub Pages, reader-notes storage, voiceover presentation, release rhythm,

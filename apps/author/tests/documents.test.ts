@@ -125,6 +125,18 @@ describe('editing content', () => {
     expect(read(folder, 'documents/till-roll.json').slots.payment).toEqual({ kind: 'markdown', text: 'CARD ****0000\nAPPROVAL 000000' });
   });
 
+  it('refuses text longer than the template allows for a part (the QR message), and says how long it may be', async () => {
+    const { session, folder } = await episode();
+    session.addDocument('receipt', 'Till roll');
+    const slot = (await session.state()).documents.find((d) => d.id === 'till-roll')!.slots.find((x) => x.name === 'qr')!;
+    expect(slot.maxLength).toBe(300);
+    expect(session.setSlotText('till-roll', 'qr', 'x'.repeat(300)).ok).toBe(true);
+    const tooLong = session.setSlotText('till-roll', 'qr', 'x'.repeat(301));
+    expect(tooLong.ok).toBe(false);
+    expect(JSON.stringify(tooLong)).toContain('300');
+    expect(read(folder, 'documents/till-roll.json').slots.qr.value).toHaveLength(300);
+  });
+
   it('keeps categories, codes, quantities and the tender when a list is saved and read back', async () => {
     const { session, folder } = await episode();
     session.addDocument('receipt', 'Till roll');

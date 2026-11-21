@@ -110,7 +110,7 @@ export interface Template {
   aspect?: number;
   /** How wide a new document of this template starts on the table, as a fraction of the table. */
   defaultWidth?: number;
-  slots: { name: string; kind: SlotKind; required?: boolean; label?: string }[];
+  slots: { name: string; kind: SlotKind; required?: boolean; label?: string; maxLength?: number }[];
   /** Named groups the authoring form is divided into. Blocks join one with `section`. */
   sections?: TemplateSection[];
   layout: Block;
