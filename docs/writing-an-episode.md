@@ -113,7 +113,7 @@ Each file in `documents/` describes one document:
 | Template | Slots |
 | --- | --- |
 | `witness-statement` | A letterhead (`crest`, `agency`, `agencyLines`, `formNumber`, `formRevision`), `title`, `subtitle`, an optional stamp (`stampText`, `stampDate`), the labelled boxes (`witnessName`, `homePhone`, `cellPhone`, `campusDept`, `jobPosition`, `witnessAddress`, `injuredName`, `dateOfAccident`, `witnessSignature`, `dateOfStatement`, `timeTaken`), the statement itself (`body`, Markdown, set on ruled lines), `takenBy` and `officeUse` |
-| `receipt` | `logo` (an image), `store`, `address`, `details`, `date`, `time`, `reference`, `items` (an item list, see below), `payment`, `notes`, `footer`, `barcodeNumber` |
+| `receipt` | `logo` (an image), `store`, `address`, `details`, `date`, `time`, `reference`, `items` (an item list, see below), `payment`, `notes`, `footer`, `barcodeNumber`, `qr` (a hidden message, drawn as a real QR code a phone can scan), `qrCaption` |
 | `typed` | `title` (a value), `body` (Markdown) |
 | `handwritten` | `body` (Markdown) |
 | `photograph` | `image` (an image), `caption` (a value) |
